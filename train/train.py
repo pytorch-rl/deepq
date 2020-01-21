@@ -1,28 +1,25 @@
 
 import gym
-import math
-import random
-import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
-from collections import namedtuple
 from itertools import count
-from PIL import Image
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import torchvision.transforms as T
 
-
-from dqn_objects import replay_mem
-from model import dqn_vanilla
+from algorithms.dqn.utils import replay_mem, dqn_algo
+from algorithms.dqn.model import dqn_vanilla
 from utils import gym_utils
 from utils import visualization
-from dqn_objects import dqn_algo
 
+from sacred import experiment
+from sacred.observers import FileStorageObserver
 
+import argparse
+import yacs
+
+from config.default_config import default_cfg
+import utils.yaml_utils
 
 BATCH_SIZE = 128
 GAMMA = 0.999
@@ -105,7 +102,11 @@ def optimize_model():
     optimizer.step()
 
 
+
+@ex.main
 def main():
+
+
     steps_done = 0
 
     num_episodes = 50
@@ -159,7 +160,33 @@ def main():
     # plt.title('Example extracted screen')
     # plt.show()
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Inference config.')
+
+    parser.add_argument('--cfg_path',
+                        type=str,
+                        required=True,
+                        help='Path to YAML config file.')
+    parser.add_argument('--file_storage_path',
+                        type=str,
+                        required=True,
+                        help='FileStorageObserver path.')
+
+    return parser.parse_args()
+
+
+
+ex = Experiment()
 
 
 if __name__ == '__main__':
-    main()
+
+    args = parse_args()
+
+    if args.cfg_path:
+        utils.yaml_utils.load_from_yaml(args.cfg_path, default_cfg)
+        ex.add_config(default_cfg)
+
+    ex.observers.append(FileStorageObserver(args.file_storage_path))
+
+    ex.run()
