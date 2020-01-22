@@ -1,3 +1,4 @@
+import argparse
 
 import gym
 import matplotlib.pyplot as plt
@@ -7,57 +8,27 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
+from config.default_config import cfg
+
+import utils.yaml_utils
 from algorithms.dqn.utils import replay_mem, dqn_algo
 from algorithms.dqn.model import dqn_vanilla
 from utils import gym_utils
 from utils import visualization
 
-from sacred import experiment
+import algorithms.dqn.trainer
+
+from sacred import Experiment
 from sacred.observers import FileStorageObserver
 
-import argparse
-import yacs
-
-from config.default_config import default_cfg
-import utils.yaml_utils
-
-BATCH_SIZE = 128
-GAMMA = 0.999
-TARGET_UPDATE = 10
-
-env = gym.make('CartPole-v0').unwrapped
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# Get screen size so that we can initialize layers correctly based on shape
-# returned from AI gym. Typical dimensions at this point are close to 3x40x90
-# which is the result of a clamped and down-scaled render buffer in get_screen()
-env.reset()
-init_screen = gym_utils.get_screen(env, device)
-_, _, screen_height, screen_width = init_screen.shape
-
-# Get number of actions from gym action space
-n_actions = env.action_space.n
-
-policy_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
-    device)
-target_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
-    device)
-target_net.load_state_dict(policy_net.state_dict())
-target_net.eval()
-
-optimizer = optim.RMSprop(policy_net.parameters())
-memory = replay_mem.ReplayMemory(10000)
+ex = Experiment()
 
 
-episode_durations = []
-
-
-def optimize_model():
-    if len(memory) < BATCH_SIZE:
+def optimize_model(memory, policy_net, target_net, optimizer, device):
+    if len(memory) < cfg.TRAIN.BATCH_SIZE:
         return
 
-    transitions = memory.sample(BATCH_SIZE)
+    transitions = memory.sample(cfg.TRAIN.BATCH_SIZE)
     # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
     # detailed explanation). This converts batch-array of Transitions
     # to Transition of batch-arrays.
@@ -67,7 +38,7 @@ def optimize_model():
     # (a final state would've been the one after which simulation ended)
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
                                             batch.next_state)), device=device,
-                                  dtype=torch.uint8)
+                                  dtype=torch.bool)
     non_final_next_states = torch.cat([s for s in batch.next_state
                                        if s is not None])
     state_batch = torch.cat(batch.state)
@@ -84,11 +55,11 @@ def optimize_model():
     # on the "older" target_net; selecting their best reward with max(1)[0].
     # This is merged based on the mask, such that we'll have either the expected
     # state value or 0 in case the state was final.
-    next_state_values = torch.zeros(BATCH_SIZE, device=device)
+    next_state_values = torch.zeros(cfg.TRAIN.BATCH_SIZE, device=device)
     next_state_values[non_final_mask] = \
         target_net(non_final_next_states).max(1)[0].detach()
     # Compute the expected Q values
-    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+    expected_state_action_values = (next_state_values * cfg.TRAIN.GAMMA) + reward_batch
 
     # Compute Huber loss
     loss = F.smooth_l1_loss(state_action_values,
@@ -102,14 +73,45 @@ def optimize_model():
     optimizer.step()
 
 
-
 @ex.main
 def main():
+    env = gym.make('CartPole-v0').unwrapped
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Get screen size so that we can initialize layers correctly based on shape
+    # returned from AI gym. Typical dimensions at this point are close to 3x40x90
+    # which is the result of a clamped and down-scaled render buffer in get_screen()
+    env.reset()
+    init_screen = gym_utils.get_screen(env, device)
+    _, _, screen_height, screen_width = init_screen.shape
+
+    # Get number of actions from gym action space
+    n_actions = env.action_space.n
+
+    policy_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
+        device)
+    target_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
+        device)
+    target_net.load_state_dict(policy_net.state_dict())
+    target_net.eval()
+
+    optimizer = optim.RMSprop(policy_net.parameters())
+    memory = replay_mem.ReplayMemory(10000)
+
+    episode_durations = []
 
     steps_done = 0
 
     num_episodes = 50
+
+    agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
+    trainer = algorithms.dqn.trainer.DQNTrainer()
+
+    trainer.train()
+
+
+
     for i_episode in range(num_episodes):
         # Initialize the environment and state
         env.reset()
@@ -118,7 +120,8 @@ def main():
         state = current_screen - last_screen
         for t in count():
             # Select and perform an action
-            action, steps_done = dqn_algo.select_action(state, steps_done, policy_net, n_actions, device)
+            action, steps_done = dqn_algo.select_action(state, steps_done,
+                                                        policy_net, n_actions, device)
             _, reward, done, _ = env.step(action.item())
             reward = torch.tensor([reward], device=device)
 
@@ -137,13 +140,13 @@ def main():
             state = next_state
 
             # Perform one step of the optimization (on the target network)
-            optimize_model()
+            optimize_model(memory, policy_net, target_net, optimizer, device)
             if done:
                 episode_durations.append(t + 1)
                 visualization.plot_durations(episode_durations)
                 break
         # Update the target network, copying all weights and biases in DQN
-        if i_episode % TARGET_UPDATE == 0:
+        if i_episode % cfg.TRAIN.TARGET_UPDATE == 0:
             target_net.load_state_dict(policy_net.state_dict())
 
     print('Complete')
@@ -152,41 +155,32 @@ def main():
     plt.ioff()
     plt.show()
 
-    # env.reset()
-    # plt.figure()
-    #
-    # plt.imshow(gym_utils.get_screen(env, device).cpu().squeeze(0).permute(1, 2, 0).numpy(),
-    #            interpolation='none')
-    # plt.title('Example extracted screen')
-    # plt.show()
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Inference config.')
 
     parser.add_argument('--cfg_path',
                         type=str,
-                        required=True,
+                        required=False,
+                        default='',
                         help='Path to YAML config file.')
     parser.add_argument('--file_storage_path',
                         type=str,
-                        required=True,
+                        required=False,
+                        default='',
                         help='FileStorageObserver path.')
 
     return parser.parse_args()
 
 
-
-ex = Experiment()
-
-
 if __name__ == '__main__':
-
     args = parse_args()
 
-    if args.cfg_path:
-        utils.yaml_utils.load_from_yaml(args.cfg_path, default_cfg)
-        ex.add_config(default_cfg)
+    if args.cfg_path != '':
+        utils.yaml_utils.load_from_yaml(args.cfg_path, cfg)
+        ex.add_config(cfg)
 
-    ex.observers.append(FileStorageObserver(args.file_storage_path))
+    if args.file_storage_path != '':
+        ex.observers.append(FileStorageObserver(args.file_storage_path))
 
     ex.run()
