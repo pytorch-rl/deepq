@@ -1,3 +1,4 @@
+import time
 import random
 import math
 from utils import gym_utils
@@ -7,6 +8,9 @@ import torch
 import torch.nn.functional as F
 from config.default_config import cfg
 from algorithms.dqn.utils import replay_mem
+
+import utils.logx
+
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, memory, optimizer, num_episodes, device):
@@ -22,7 +26,13 @@ class DQNTrainer(object):
         self.device = device
         self.episode_durations = []
 
+        self.logger = utils.logx.EpochLogger(train_cfg.LOG.OUTPUT_DIR,
+                                             train_cfg.LOG.OUTPUT_FNAME,
+                                             train_cfg.LOG.EXP_NAME)
+
     def train(self):
+        start_time = time.time()
+
         for i_episode in range(self.num_episodes):
             # Initialize the environment and state
             self.env.reset()
@@ -58,17 +68,24 @@ class DQNTrainer(object):
                 # Perform one step of the optimization (on the target network)
                 self.step()
 
-                # optimize_model(memory, policy_net, target_net, optimizer,
-                #                device)
-                #
-
                 if done:
                     self.episode_durations.append(t + 1)
                     visualization.plot_durations(self.episode_durations)
                     break
+
             # Update the target network, copying all weights and biases in DQN
             if i_episode % cfg.TRAIN.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
+
+            # Save model
+            # if (i_episode % save_freq == 0) or (i_episode == i_episode - 1):
+            #     self.logger.save_state(state_dict=dict(), itr=None)
+
+            self.logger.log_tabular('Epsiode', i_episode)
+            # self.logger.log_tabular('Acc', with_min_and_max=True)
+            # self.logger.log_tabular('Loss', average_only=True)
+            self.logger.log_tabular('Time', time.time() - start_time)
+            self.logger.dump_tabular()
 
     def step(self):
 
