@@ -42,6 +42,10 @@ PATH_TO_SAVE = '/raid/algo/SOCISP_SLOW/ADAS/Courses/mspacman/data/validation_set
 
 @ex.main
 def generate_random_states_list():
+    """
+    generates a validation set of randomly chosen samples from episodes played with randomly
+    initialized policy net and saves it as .pickle
+    """
     env = gym.make('CartPole-v0').unwrapped
     env.seed(SEED)
     env.reset()
