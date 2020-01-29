@@ -29,17 +29,6 @@ SEED = 7
 PATH_TO_SAVE = '/raid/algo/SOCISP_SLOW/ADAS/Courses/mspacman/data/validation_set_random_' + str(VALIDATION_SET_SIZE) + '.pickle'
 
 
-# @ex.main
-# def generate_initial_states_list():
-#     state_list = []
-#     env = gym.make('CartPole-v0').unwrapped
-#     env.seed(7)
-#     for i in range(VALIDATION_SET_SIZE):
-#         env.reset()
-#         state_list.append(gym_utils.get_screen(env))
-#     pickle.dump(state_list, open('validation_set_initial.pickle', 'wb'))
-
-
 @ex.main
 def generate_random_states_list():
     """

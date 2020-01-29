@@ -50,7 +50,7 @@ class DQNTrainer(object):
             current_screen = gym_utils.get_screen(self.env).to(self.device)
             self.agent.state = current_screen - last_screen
 
-            _ = self._play_episode(current_screen)
+            self._play_episode(current_screen)
             # Update the target network, copying all weights and biases in DQN
             if i_episode % cfg.TRAIN.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
