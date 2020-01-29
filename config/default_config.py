@@ -14,10 +14,12 @@ def get_default_params():
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
 
+        # TODO: Is this the right place for these ?
         'LOG': {
-            'OUTPUT_DIR': False,
+            'OUTPUT_DIR': '',
             'OUTPUT_FNAME': 'progress.txt',
-            'EXP_NAME': False,
+            'EXP_NAME': '',
+            'SAVE_FREQ': 1
         }
     }
 

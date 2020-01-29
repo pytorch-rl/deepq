@@ -31,8 +31,9 @@ class DQNTrainer(object):
                                              train_cfg.LOG.EXP_NAME)
 
     def train(self):
-        start_time = time.time()
+        self.logger.setup_pt_saver()
 
+        start_time = time.time()
         for i_episode in range(self.num_episodes):
             # Initialize the environment and state
             self.env.reset()
@@ -45,7 +46,7 @@ class DQNTrainer(object):
                 eps_threshold = self.cfg.EPS_END + (self.cfg.EPS_START - self.cfg.EPS_END) \
                                 * math.exp(-1. * self.steps_done / self.cfg.EPS_DECAY)
 
-                action= self.agent.select_action(eps_threshold)
+                action = self.agent.select_action(eps_threshold)
                 self.steps_done += 1
                 _, reward, done, _ = self.env.step(action.item())
 
@@ -73,17 +74,23 @@ class DQNTrainer(object):
                     visualization.plot_durations(self.episode_durations)
                     break
 
-            # Update the target network, copying all weights and biases in DQN
+                # TODO(maors): Log example.
+                self.logger.store(X=t)
+                self.logger.store(Y=i_episode)
+                self.logger.store(Q=0.0)
+
+            # Update the target network, copying all weights and biases in DQN.
             if i_episode % cfg.TRAIN.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
 
-            # Save model
-            # if (i_episode % save_freq == 0) or (i_episode == i_episode - 1):
-            #     self.logger.save_state(state_dict=dict(), itr=None)
+            # Save model.
+            if (i_episode % self.cfg.LOG.SAVE_FREQ == 0) or (i_episode == i_episode - 1):
+                self.logger.save_state()
 
-            self.logger.log_tabular('Epsiode', i_episode)
-            # self.logger.log_tabular('Acc', with_min_and_max=True)
-            # self.logger.log_tabular('Loss', average_only=True)
+            # Log info about epoch.
+            self.logger.log_tabular('X')
+            self.logger.log_tabular('Y')
+            self.logger.log_tabular('Q')
             self.logger.log_tabular('Time', time.time() - start_time)
             self.logger.dump_tabular()
 
@@ -140,7 +147,6 @@ class DQNTrainer(object):
         pass
 
 
-
 class DQNAgent(object):
     def __init__(self, policy_net, n_actions, device):
         self.policy_net = policy_net
@@ -149,7 +155,6 @@ class DQNAgent(object):
         self.device = device
 
     def select_action(self, eps_threshold):
-
         sample = random.random()
 
         if sample > eps_threshold:

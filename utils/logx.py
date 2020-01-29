@@ -9,8 +9,10 @@ From: https://github.com/openai/spinningup/tree/master/spinup/utils
 """
 import json
 import joblib
+
 import numpy as np
 import os.path as osp, time, atexit, os
+import torch
 
 from utils.mpi_tools import proc_id, mpi_statistics_scalar
 
@@ -35,9 +37,11 @@ def colorize(string, color, bold=False, highlight=False):
     """
     attr = []
     num = color2num[color]
-    if highlight: num += 10
+    if highlight:
+        num += 10
     attr.append(str(num))
-    if bold: attr.append('1')
+    if bold:
+        attr.append('1')
     return '\x1b[%sm%s\x1b[0m' % (';'.join(attr), string)
 
 
@@ -86,6 +90,7 @@ class Logger:
         else:
             self.output_dir = None
             self.output_file = None
+
         self.first_row = True
         self.log_headers = []
         self.log_current_row = {}
@@ -139,79 +144,18 @@ class Logger:
             with open(osp.join(self.output_dir, "config.json"), 'w') as out:
                 out.write(output)
 
-    def save_state(self, state_dict, itr=None):
-        """
-        Saves the state of an experiment.
-
-        To be clear: this is about saving *state*, not logging diagnostics.
-        All diagnostic logging is separate from this function. This function
-        will save whatever is in ``state_dict``---usually just a copy of the
-        environment---and the most recent parameters for the model you
-        previously set up saving for with ``setup_tf_saver``.
-
-        Call with any frequency you prefer. If you only want to maintain a
-        single state and overwrite it at each call with the most recent
-        version, leave ``itr=None``. If you want to keep all of the states you
-        save, provide unique (increasing) values for 'itr'.
-
-        Args:
-            state_dict (dict): Dictionary containing essential elements to
-                describe the current state of training.
-
-            itr: An int, or None. Current iteration of training.
-        """
+    def save_ckpt(self, checkpoint, itr, save_dir=''):
         if proc_id() == 0:
-            fname = 'vars.pkl' if itr is None else 'vars%d.pkl' % itr
-            try:
-                joblib.dump(state_dict, osp.join(self.output_dir, fname))
-            except:
-                self.log('Warning: could not pickle state_dict.', color='red')
+            if save_dir == '':
+                save_dir = self.output_dir
+            self._pt_simple_save(save_dir, itr, checkpoint)
 
-    def setup_pt_saver(self, sess, inputs, outputs):
-        """
-        Set up easy model saving for tensorflow.
-        Call once, after defining your computation graph but before training.
-        Args:
-            sess: The Tensorflow session in which you train your computation
-                graph.
-            inputs (dict): A dictionary that maps from keys of your choice
-                to the tensorflow placeholders that serve as inputs to the
-                computation graph. Make sure that *all* of the placeholders
-                needed for your outputs are included!
-            outputs (dict): A dictionary that maps from keys of your choice
-                to the outputs from your computation graph.
-        """
-        pass
-
-        # TODO(maors)
-
-        # self.tf_saver_elements = dict(session=sess, inputs=inputs,
-        #                               outputs=outputs)
-        # self.tf_saver_info = {'inputs': {k: v.name for k, v in inputs.items()},
-        #                       'outputs': {k: v.name for k, v in
-        #                                   outputs.items()}}
-
-    def _pt_simple_save(self, itr=None):
-        """
-        Uses simple_save to save a trained model, plus info to make it easy
-        to associated tensors to variables after restore.
-        """
-        pass
-
-        # TODO(maors)
-
-        # if proc_id() == 0:
-        #     assert hasattr(self, 'tf_saver_elements'), \
-        #         "First have to setup saving with self.setup_tf_saver"
-        #     fpath = 'simple_save' + ('%d' % itr if itr is not None else '')
-        #     fpath = osp.join(self.output_dir, fpath)
-        #     if osp.exists(fpath):
-        #         # simple_save refuses to be useful if fpath already exists,
-        #         # so just delete fpath if it's there.
-        #         shutil.rmtree(fpath)
-        #     tf.saved_model.simple_save(export_dir=fpath,
-        #                                **self.tf_saver_elements)
-        #     joblib.dump(self.tf_saver_info, osp.join(fpath, 'model_info.pkl'))
+    def _pt_simple_save(self, save_dir, checkpoint, itr=None):
+        """Uses torch.save to save a trained model."""
+        if proc_id() == 0:
+            fpath = 'checkpoint_' + ('%d'%itr if itr is not None else '') + '.pt'
+            checkpoint_path = os.path.join(save_dir, fpath)
+            torch.save(checkpoint, checkpoint_path)
 
     def dump_tabular(self):
         """
@@ -221,6 +165,7 @@ class Logger:
         """
         if proc_id() == 0:
             vals = []
+
             key_lens = [len(key) for key in self.log_headers]
             max_key_len = max(15, max(key_lens))
             keystr = '%' + '%d' % max_key_len
@@ -233,6 +178,7 @@ class Logger:
                 print(fmt % (key, valstr))
                 vals.append(val)
             print("-" * n_slashes)
+
             if self.output_file is not None:
                 if self.first_row:
                     self.output_file.write("\t".join(self.log_headers) + "\n")
