@@ -8,6 +8,8 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
+import pickle
+
 from config.default_config import cfg
 from apex import amp, optimizers
 
@@ -36,7 +38,7 @@ def main():
     # returned from AI gym. Typical dimensions at this point are close to 3x40x90
     # which is the result of a clamped and down-scaled render buffer in get_screen()
     env.reset()
-    init_screen = gym_utils.get_screen(env, device)
+    init_screen = gym_utils.get_screen(env).to(device)
     _, _, screen_height, screen_width = init_screen.shape
 
     # Get number of actions from gym action space
@@ -57,8 +59,11 @@ def main():
 
     num_episodes = 5000
 
+    env_state_list = pickle.load(open(cfg.PATHS.VALIDATION_SET_PATH, 'rb'))
+
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
-    trainer = algorithms.dqn.trainer.DQNTrainer(cfg.TRAIN, env, agent, target_net, memory, optimizer, num_episodes, device)
+    trainer = algorithms.dqn.trainer.DQNTrainer(cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
+                                                num_episodes, device, env_state_list)
 
     trainer.train()
 
