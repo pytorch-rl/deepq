@@ -1,21 +1,23 @@
-import time
-import random
 import math
-from utils import gym_utils
-from utils import visualization
+import random
+import time
 from itertools import count
+
+import numpy as np
 import torch
 import torch.nn.functional as F
-from config.default_config import cfg
-from algorithms.dqn.utils import replay_mem
 from apex import amp
-import numpy as np
 
 import utils.logx
+from algorithms.dqn.utils import replay_mem
+from config.default_config import cfg
+from utils import gym_utils
+from utils import visualization
 
 
 class DQNTrainer(object):
-    def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer, num_episodes, device,
+    def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
+                 num_episodes, device,
                  env_state_list):
 
         self.cfg = train_cfg
@@ -37,7 +39,7 @@ class DQNTrainer(object):
                                              train_cfg.LOG.EXP_NAME)
 
     def train(self):
-        self.logger.setup_pt_saver()
+        # self.logger.setup_pt_saver()
 
         start_time = time.time()
         episodes_list = []
@@ -57,7 +59,8 @@ class DQNTrainer(object):
                 validation_score = self.validate()
                 self.validation_score_list.append(validation_score)
                 episodes_list.append(i_episode)
-                visualization.plot_validation_score(self.validation_score_list, episodes_list)
+                visualization.plot_validation_score(self.validation_score_list,
+                                                    episodes_list)
 
     def _play_episode(self, current_screen, return_state_history=False):
         state_history = []
@@ -97,7 +100,6 @@ class DQNTrainer(object):
                 visualization.plot_durations(self.episode_durations)
                 return state_history
 
-
     def step(self):
 
         if len(self.memory) < cfg.TRAIN.BATCH_SIZE:
@@ -132,14 +134,18 @@ class DQNTrainer(object):
         # state value or 0 in case the state was final.
 
         if cfg.TRAIN.OPT_LEVEL == "O0":
-            next_state_values = torch.zeros(cfg.TRAIN.BATCH_SIZE, device=self.device)
+            data_type = torch.float
         else:
-            next_state_values = torch.zeros(cfg.TRAIN.BATCH_SIZE, device=self.device).half()
+            data_type = torch.half
+
+        next_state_values = torch.zeros(cfg.TRAIN.BATCH_SIZE, device=self.device,
+                                        dtype=data_type)
 
         next_state_values[non_final_mask] = \
             self.target_net(non_final_next_states).max(1)[0].detach()
         # Compute the expected Q values
-        expected_state_action_values = (next_state_values * cfg.TRAIN.GAMMA) + reward_batch
+        expected_state_action_values = (
+                                                   next_state_values * cfg.TRAIN.GAMMA) + reward_batch
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values,
@@ -155,13 +161,14 @@ class DQNTrainer(object):
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-
     def validate(self):
         validation_scores = []
         for state in self.env_state_list:
-            current_state_q = max(self.policy_net(state.to(self.device)).data.cpu().numpy()[0])
+            current_state_q = max(
+                    self.policy_net(state.to(self.device)).data.cpu().numpy()[0])
             validation_scores.append(current_state_q)
         return np.mean(validation_scores)
+
 
 class DQNAgent(object):
     def __init__(self, policy_net, n_actions, device):

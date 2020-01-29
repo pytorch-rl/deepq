@@ -53,7 +53,7 @@ def main():
 
     optimizer = optim.RMSprop(policy_net.parameters())
 
-    model, optimizer = amp.initialize([target_net, policy_net], optimizer,
+    [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net], optimizer,
                                       opt_level=cfg.TRAIN.OPT_LEVEL)
     memory = replay_mem.ReplayMemory(10000)
 
