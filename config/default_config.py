@@ -15,8 +15,14 @@ def get_default_params():
         'EPS_START': 0.9,
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
+
         'OPT_LEVEL': 'O1',
+
         'VALIDATE_FREQUENCY': 10,
+
+        'CKPT_SAVE_FREQ': 10,
+        'CKPT_PATH': '',
+        'CKPT_SAVE_DIR': '',
 
         'LOG': {
             'OUTPUT_DIR': '',
