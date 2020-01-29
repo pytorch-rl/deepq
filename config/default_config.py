@@ -4,7 +4,9 @@ from yacs.config import CfgNode as CN
 def get_default_params():
     default_params = dict()
 
-    default_params['PATHS'] = {}
+    default_params['PATHS'] = {
+        'VALIDATION_SET_PATH': ''
+    }
 
     default_params['TRAIN'] = {
         'BATCH_SIZE': 128,
@@ -14,7 +16,8 @@ def get_default_params():
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
 
-        # TODO: Is this the right place for these ?
+        'VALIDATE_FREQUENCY': 10,
+
         'LOG': {
             'OUTPUT_DIR': '',
             'OUTPUT_FNAME': 'progress.txt',
