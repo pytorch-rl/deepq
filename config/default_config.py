@@ -5,7 +5,7 @@ def get_default_params():
     default_params = dict()
 
     default_params['PATHS'] = {
-        'VALIDATION_SET_PATH': '/raid/algo/SOCISP_SLOW/ADAS/Courses/mspacman/data/validation_set_random_1000.pickle'
+        'VALIDATION_SET_PATH': ''
     }
 
     default_params['TRAIN'] = {
@@ -15,10 +15,16 @@ def get_default_params():
         'EPS_START': 0.9,
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
-        'VALIDATE_FREQUENCY': 10,
-    }
 
-    default_params['LOG'] = {}
+        'VALIDATE_FREQUENCY': 10,
+
+        'LOG': {
+            'OUTPUT_DIR': '',
+            'OUTPUT_FNAME': 'progress.txt',
+            'EXP_NAME': '',
+            'SAVE_FREQ': 1
+        }
+    }
 
     return default_params
 
