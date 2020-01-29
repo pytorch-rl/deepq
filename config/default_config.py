@@ -13,6 +13,7 @@ def get_default_params():
         'EPS_START': 0.9,
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
+        'OPT_LEVEL': 'O1',
     }
 
     default_params['LOG'] = {}

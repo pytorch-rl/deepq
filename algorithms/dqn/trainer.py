@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from config.default_config import cfg
 from algorithms.dqn.utils import replay_mem
+from apex import amp
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, memory, optimizer, num_episodes, device):
@@ -102,7 +103,12 @@ class DQNTrainer(object):
         # on the "older" target_net; selecting their best reward with max(1)[0].
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
-        next_state_values = torch.zeros(cfg.TRAIN.BATCH_SIZE, device=self.device)
+
+        if cfg.TRAIN.OPT_LEVEL == "O0":
+            next_state_values = torch.zeros(cfg.TRAIN.BATCH_SIZE, device=self.device)
+        else:
+            next_state_values = torch.zeros(cfg.TRAIN.BATCH_SIZE, device=self.device).half()
+
         next_state_values[non_final_mask] = \
             self.target_net(non_final_next_states).max(1)[0].detach()
         # Compute the expected Q values
@@ -114,14 +120,16 @@ class DQNTrainer(object):
 
         # Optimize the model
         self.optimizer.zero_grad()
-        loss.backward()
+
+        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+            scaled_loss.backward()
+
         for param in self.agent.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
     def validate(self):
         pass
-
 
 
 class DQNAgent(object):

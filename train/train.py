@@ -9,6 +9,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from config.default_config import cfg
+from apex import amp, optimizers
 
 import utils.yaml_utils
 from algorithms.dqn.utils import replay_mem, dqn_algo
@@ -28,6 +29,8 @@ def main():
     env = gym.make('CartPole-v0').unwrapped
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if not torch.cuda.is_available():
+        print("Running on CPU!!!")
 
     # Get screen size so that we can initialize layers correctly based on shape
     # returned from AI gym. Typical dimensions at this point are close to 3x40x90
@@ -47,9 +50,12 @@ def main():
     target_net.eval()
 
     optimizer = optim.RMSprop(policy_net.parameters())
+
+    model, optimizer = amp.initialize([target_net, policy_net], optimizer,
+                                      opt_level=cfg.TRAIN.OPT_LEVEL)
     memory = replay_mem.ReplayMemory(10000)
 
-    num_episodes = 50
+    num_episodes = 5000
 
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
     trainer = algorithms.dqn.trainer.DQNTrainer(cfg.TRAIN, env, agent, target_net, memory, optimizer, num_episodes, device)
@@ -81,6 +87,7 @@ def parse_args():
 
 
 if __name__ == '__main__':
+
     args = parse_args()
 
     if args.cfg_path != '':
