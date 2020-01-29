@@ -1,3 +1,4 @@
+import time
 import random
 import math
 from utils import gym_utils
@@ -9,6 +10,9 @@ from config.default_config import cfg
 from algorithms.dqn.utils import replay_mem
 from apex import amp
 import numpy as np
+
+import utils.logx
+
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer, num_episodes, device,
@@ -28,7 +32,14 @@ class DQNTrainer(object):
         self.validation_score_list = []
         self.env_state_list = env_state_list
 
+        self.logger = utils.logx.EpochLogger(train_cfg.LOG.OUTPUT_DIR,
+                                             train_cfg.LOG.OUTPUT_FNAME,
+                                             train_cfg.LOG.EXP_NAME)
+
     def train(self):
+        self.logger.setup_pt_saver()
+
+        start_time = time.time()
         episodes_list = []
         for i_episode in range(self.num_episodes):
             # Initialize the environment and state
@@ -80,10 +91,6 @@ class DQNTrainer(object):
 
             # Perform one step of the optimization (on the target network)
             self.step()
-
-            # optimize_model(memory, policy_net, target_net, optimizer,
-            #                device)
-            #
 
             if done:
                 self.episode_durations.append(t + 1)
@@ -164,7 +171,6 @@ class DQNAgent(object):
         self.device = device
 
     def select_action(self, eps_threshold):
-
         sample = random.random()
 
         if sample > eps_threshold:
