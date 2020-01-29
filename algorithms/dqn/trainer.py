@@ -7,68 +7,88 @@ import torch
 import torch.nn.functional as F
 from config.default_config import cfg
 from algorithms.dqn.utils import replay_mem
+import numpy as np
 
 class DQNTrainer(object):
-    def __init__(self, train_cfg, env, agent, target_net, memory, optimizer, num_episodes, device):
+    def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer, num_episodes, device,
+                 env_state_list):
 
         self.cfg = train_cfg
         self.agent = agent
         self.env = env
         self.optimizer = optimizer
         self.target_net = target_net
+        self.policy_net = policy_net
         self.memory = memory
         self.steps_done = 0
         self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
+        self.validation_score_list = []
+        self.env_state_list = env_state_list
 
     def train(self):
+        episodes_list = []
         for i_episode in range(self.num_episodes):
             # Initialize the environment and state
             self.env.reset()
-            last_screen = gym_utils.get_screen(self.env, self.device)
-            current_screen = gym_utils.get_screen(self.env, self.device)
+            last_screen = gym_utils.get_screen(self.env).to(self.device)
+            current_screen = gym_utils.get_screen(self.env).to(self.device)
             self.agent.state = current_screen - last_screen
 
-            for t in count():
-                # Select and perform an action
-                eps_threshold = self.cfg.EPS_END + (self.cfg.EPS_START - self.cfg.EPS_END) \
-                                * math.exp(-1. * self.steps_done / self.cfg.EPS_DECAY)
-
-                action= self.agent.select_action(eps_threshold)
-                self.steps_done += 1
-                _, reward, done, _ = self.env.step(action.item())
-
-                reward = torch.tensor([reward], device=self.device)
-
-                # Observe new state
-                last_screen = current_screen
-                current_screen = gym_utils.get_screen(self.env, self.device)
-                if not done:
-                    next_state = current_screen - last_screen
-                else:
-                    next_state = None
-
-                # Store the transition in memory
-                self.memory.push(self.agent.state, action, next_state, reward)
-
-                # Move to the next state
-                self.agent.state = next_state
-
-                # Perform one step of the optimization (on the target network)
-                self.step()
-
-                # optimize_model(memory, policy_net, target_net, optimizer,
-                #                device)
-                #
-
-                if done:
-                    self.episode_durations.append(t + 1)
-                    visualization.plot_durations(self.episode_durations)
-                    break
+            _ = self._play_episode(current_screen)
             # Update the target network, copying all weights and biases in DQN
             if i_episode % cfg.TRAIN.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
+
+            if i_episode % cfg.TRAIN.VALIDATE_FREQUENCY == 0:
+                validation_score = self.validate()
+                self.validation_score_list.append(validation_score)
+                episodes_list.append(i_episode)
+                visualization.plot_validation_score(self.validation_score_list, episodes_list)
+
+    def _play_episode(self, current_screen, return_state_history=False):
+        state_history = []
+        for t in count():
+            # Select and perform an action
+            eps_threshold = self.cfg.EPS_END + (self.cfg.EPS_START - self.cfg.EPS_END) \
+                            * math.exp(-1. * self.steps_done / self.cfg.EPS_DECAY)
+
+            action = self.agent.select_action(eps_threshold)
+            self.steps_done += 1
+            _, reward, done, _ = self.env.step(action.item())
+
+            reward = torch.tensor([reward], device=self.device)
+
+            # Observe new state
+            if return_state_history:
+                state_history.append(current_screen)
+
+            last_screen = current_screen
+            current_screen = gym_utils.get_screen(self.env).to(self.device)
+            if not done:
+                next_state = current_screen - last_screen
+            else:
+                next_state = None
+
+            # Store the transition in memory
+            self.memory.push(self.agent.state, action, next_state, reward)
+
+            # Move to the next state
+            self.agent.state = next_state
+
+            # Perform one step of the optimization (on the target network)
+            self.step()
+
+            # optimize_model(memory, policy_net, target_net, optimizer,
+            #                device)
+            #
+
+            if done:
+                self.episode_durations.append(t + 1)
+                visualization.plot_durations(self.episode_durations)
+                return state_history
+
 
     def step(self):
 
@@ -119,9 +139,13 @@ class DQNTrainer(object):
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def validate(self):
-        pass
 
+    def validate(self):
+        validation_scores = []
+        for state in self.env_state_list:
+            current_state_q = max(self.policy_net(state.to(self.device)).data.cpu().numpy()[0])
+            validation_scores.append(current_state_q)
+        return np.mean(validation_scores)
 
 
 class DQNAgent(object):
