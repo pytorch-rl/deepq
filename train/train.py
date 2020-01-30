@@ -38,6 +38,7 @@ def main():
     # returned from AI gym. Typical dimensions at this point are close to 3x40x90
     # which is the result of a clamped and down-scaled render buffer in get_screen()
     env.reset()
+
     init_screen = gym_utils.get_screen(env).to(device)
     _, _, screen_height, screen_width = init_screen.shape
 

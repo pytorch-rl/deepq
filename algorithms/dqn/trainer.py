@@ -19,8 +19,7 @@ from utils import visualization
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
-                 num_episodes, device,
-                 env_state_list):
+                 num_episodes, device, env_state_list):
 
         self.cfg = train_cfg
         self.agent = agent
@@ -67,7 +66,8 @@ class DQNTrainer(object):
                 validation_score = self.validate()
                 self.validation_score_list.append(validation_score)
                 episodes_list.append(i_episode)
-                visualization.plot_validation_score(self.validation_score_list,
+                if self.cfg.VISUALIZE:
+                    visualization.plot_validation_score(self.validation_score_list,
                                                     episodes_list)
 
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
@@ -108,7 +108,8 @@ class DQNTrainer(object):
 
             if done:
                 self.episode_durations.append(t + 1)
-                visualization.plot_durations(self.episode_durations)
+                if self.cfg.VISUALIZE:
+                    visualization.plot_durations(self.episode_durations)
                 return state_history
 
     def step(self):

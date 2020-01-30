@@ -28,8 +28,10 @@ def get_default_params():
             'OUTPUT_DIR': '',
             'OUTPUT_FNAME': 'progress.txt',
             'EXP_NAME': '',
-            'SAVE_FREQ': 1
-        }
+            'SAVE_FREQ': 1,
+        },
+
+        'VISUALIZE': False,
     }
 
     return default_params
