@@ -30,7 +30,10 @@ class DQNTrainer(object):
         self.policy_net = policy_net
         self.memory = memory
         self.steps_done = 0
+
         self.curr_episode = None
+        self.init_episode = 0
+
         self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
@@ -43,15 +46,15 @@ class DQNTrainer(object):
             self.cfg.LOG.EXP_NAME
         )
 
-        if self.cfg.CKPT_PATH != '':
-            self._load_ckpt(self.cfg.CKPT_PATH)
+        self._load_ckpt(self.cfg.CKPT_PATH)
 
     def train(self):
         start_time = time.time()
 
         episodes_list = []
-        for i_episode in range(self.num_episodes):
-            self._graceful_exit(i_episode)
+        for i_episode in range(self.init_episode, self.num_episodes):
+            self.curr_episode = i_episode
+            self._graceful_exit()
 
             # Initialize the environment and state.
             self.env.reset()
@@ -186,21 +189,32 @@ class DQNTrainer(object):
             'model': self.target_net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'amp': amp.state_dict(),
-            'episode': episode
+            'episode': episode,
+            'steps_done': self.steps_done,
+            'init_episode': self.init_episode
         }
         fpath = 'checkpoint_' + \
-                ('%d' % episode if episode is not None else '') + '.pt'
+                ('%d' % episode if episode is not None else '0') + '.pt'
         checkpoint_path = os.path.join(self.cfg.CKPT_SAVE_DIR, fpath)
         torch.save(checkpoint, checkpoint_path)
 
     def _load_ckpt(self, ckpt_path):
-        checkpoint = torch.load(ckpt_path)
-        self.policy_net.load_state_dict(checkpoint['model'])
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
-        amp.load_state_dict(checkpoint['amp'])
+        newest_ckpt_name = self._get_newest_ckpt()
 
-    def _graceful_exit(self, episode):
-        self.curr_episode = episode
+        if newest_ckpt_name is not None:
+            ckpt_path = os.path.join(
+                self.cfg.CKPT_SAVE_DIR, newest_ckpt_name)
+
+        if ckpt_path != '':
+            print('Loading {}'.format(ckpt_path))
+            checkpoint = torch.load(ckpt_path)
+            self.policy_net.load_state_dict(checkpoint['model'])
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            amp.load_state_dict(checkpoint['amp'])
+            self.steps_done = checkpoint['steps_done']
+            self.init_episode = checkpoint['init_episode']
+
+    def _graceful_exit(self):
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
@@ -210,6 +224,12 @@ class DQNTrainer(object):
         self._save_ckpt(self.curr_episode)
         exit(0)
 
+    def _get_newest_ckpt(self):
+        files = os.listdir(self.cfg.CKPT_SAVE_DIR)
+        newest_ckpt_name = None
+        if files != []:
+            newest_ckpt_name = max(files, key=lambda x: int(x.split('.')[0].split('_')[-1]))
+        return newest_ckpt_name
 
 class DQNAgent(object):
     def __init__(self, policy_net, n_actions, device):
