@@ -144,19 +144,6 @@ class Logger:
             with open(osp.join(self.output_dir, "config.json"), 'w') as out:
                 out.write(output)
 
-    def save_ckpt(self, checkpoint, itr, save_dir=''):
-        if proc_id() == 0:
-            if save_dir == '':
-                save_dir = self.output_dir
-            self._pt_simple_save(save_dir, itr, checkpoint)
-
-    def _pt_simple_save(self, save_dir, checkpoint, itr=None):
-        """Uses torch.save to save a trained model."""
-        if proc_id() == 0:
-            fpath = 'checkpoint_' + ('%d'%itr if itr is not None else '') + '.pt'
-            checkpoint_path = os.path.join(save_dir, fpath)
-            torch.save(checkpoint, checkpoint_path)
-
     def dump_tabular(self):
         """
         Write all of the diagnostics from the current iteration.

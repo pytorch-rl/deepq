@@ -62,8 +62,9 @@ def main():
     env_state_list = pickle.load(open(cfg.PATHS.VALIDATION_SET_PATH, 'rb'))
 
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
-    trainer = algorithms.dqn.trainer.DQNTrainer(cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
-                                                num_episodes, device, env_state_list)
+    trainer = algorithms.dqn.trainer.DQNTrainer(
+        cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
+        num_episodes, device, env_state_list)
 
     trainer.train()
 
