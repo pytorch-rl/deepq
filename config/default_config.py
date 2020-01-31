@@ -11,7 +11,7 @@ def get_default_params():
     default_params['TRAIN'] = {
         'BATCH_SIZE': 128,
         'GAMMA': 0.999,
-        'TARGET_UPDATE': 10000,
+        'TARGET_UPDATE': 1000,
         'EPS_START': 0.9,
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
