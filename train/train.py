@@ -59,6 +59,8 @@ def main():
 
     num_episodes = 5000
 
+
+
     env_state_list = pickle.load(open(cfg.PATHS.VALIDATION_SET_PATH, 'rb'))
 
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
