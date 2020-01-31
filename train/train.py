@@ -45,20 +45,17 @@ def main():
     # Get number of actions from gym action space
     n_actions = env.action_space.n
 
-    policy_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
-        device)
-    target_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
-        device)
+    policy_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(device)
+    target_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
-    optimizer = optim.RMSprop(policy_net.parameters())
+    optimizer = optim.RMSprop(params=policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE, alpha=cfg.TRAIN.ALPHA)
 
-    [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net], optimizer,
-                                      opt_level=cfg.TRAIN.OPT_LEVEL)
-    memory = replay_mem.ReplayMemory(10000)
+    [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net],
+                                          optimizer, opt_level=cfg.TRAIN.OPT_LEVEL)
 
-    num_episodes = 5000
+    memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_BUFFER_SIZE)
 
 
 
@@ -67,7 +64,7 @@ def main():
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
     trainer = algorithms.dqn.trainer.DQNTrainer(
         cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
-        num_episodes, device, env_state_list)
+        device, env_state_list)
 
     trainer.train()
 

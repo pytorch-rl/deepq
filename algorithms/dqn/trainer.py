@@ -19,7 +19,7 @@ from utils import visualization
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
-                 num_episodes, device, env_state_list):
+                 device, env_state_list):
 
         self.cfg = train_cfg
         self.agent = agent
@@ -29,7 +29,6 @@ class DQNTrainer(object):
         self.policy_net = policy_net
         self.memory = memory
         self.steps_done = 0
-        self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
         self.validation_score_list = []
@@ -47,7 +46,7 @@ class DQNTrainer(object):
         start_time = time.time()
 
         episodes_list = []
-        for i_episode in range(self.init_episode, self.num_episodes):
+        for i_episode in range(self.init_episode, self.cfg.NUM_EPISODES):
             self.curr_episode = i_episode
             self._graceful_exit()
 
