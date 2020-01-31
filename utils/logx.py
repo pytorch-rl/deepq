@@ -54,7 +54,7 @@ class Logger:
     """
 
     def __init__(self, output_dir=None, output_fname='progress.txt',
-                 exp_name=None):
+                 exp_name=None, append=True):
         """
         Initialize a Logger.
 
@@ -73,6 +73,12 @@ class Logger:
                 hyperparameter configuration with multiple random seeds, you
                 should give them all the same ``exp_name``.)
         """
+        self.first_row = True
+        self.log_headers = []
+        self.log_current_row = {}
+        self.exp_name = exp_name
+        self.append = append
+
         if proc_id() == 0:
             self.output_dir = output_dir or "/tmp/experiments/%i" % int(
                 time.time())
@@ -82,7 +88,8 @@ class Logger:
             else:
                 os.makedirs(self.output_dir)
             self.output_file = open(osp.join(self.output_dir, output_fname),
-                                    'w')
+                                    'a' if self.append else 'w')
+
             atexit.register(self.output_file.close)
             print(
                 colorize("Logging data to %s" % self.output_file.name, 'green',
@@ -90,11 +97,6 @@ class Logger:
         else:
             self.output_dir = None
             self.output_file = None
-
-        self.first_row = True
-        self.log_headers = []
-        self.log_current_row = {}
-        self.exp_name = exp_name
 
     def log(self, msg, color='green'):
         """Print a colorized message to stdout."""
@@ -167,7 +169,7 @@ class Logger:
             print("-" * n_slashes)
 
             if self.output_file is not None:
-                if self.first_row:
+                if self.output_file.tell() == 0: # if on the first row
                     self.output_file.write("\t".join(self.log_headers) + "\n")
                 self.output_file.write("\t".join(map(str, vals)) + "\n")
                 self.output_file.flush()
