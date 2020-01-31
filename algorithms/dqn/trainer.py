@@ -29,26 +29,31 @@ class DQNTrainer(object):
         self.policy_net = policy_net
         self.memory = memory
         self.steps_done = 0
+        self.init_episode = 0
+        self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
+        self.episode_mean_losses = []
         self.validation_score_list = []
         self.env_state_list = env_state_list
+
+        self._load_ckpt(self.cfg.CKPT_PATH)
 
         self.logger = utils.logx.EpochLogger(
             self.cfg.LOG.OUTPUT_DIR,
             self.cfg.LOG.OUTPUT_FNAME,
-            self.cfg.LOG.EXP_NAME
+            self.cfg.LOG.EXP_NAME,
+            self.cfg.LOG.APPEND
         )
 
-        self._load_ckpt(self.cfg.CKPT_PATH)
-
     def train(self):
-        start_time = time.time()
+        # Set a signal handler.
+        self._graceful_exit()
 
         episodes_list = []
         for i_episode in range(self.init_episode, self.cfg.NUM_EPISODES):
+            start_time = time.time()
             self.curr_episode = i_episode
-            self._graceful_exit()
 
             # Initialize the environment and state.
             self.env.reset()
@@ -57,7 +62,7 @@ class DQNTrainer(object):
             self.agent.state = current_screen - last_screen
 
             self._play_episode(current_screen)
-            # Update the target network, copying all weights and biases in DQN
+            # Update the target network, copying all weights and biases in DQN.
             if i_episode % self.cfg.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
 
@@ -72,8 +77,18 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
+            # Scalar logging.
+            self.logger.log_tabular('Epoch', i_episode)
+            self.logger.log_tabular('TotalGradientSteps', self.steps_done)
+            self.logger.log_tabular('EpisodeDuration', self.episode_durations[-1])
+            self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
+            self.logger.log_tabular('Time', time.time() - start_time)
+            self.logger.dump_tabular()
+
     def _play_episode(self, current_screen, return_state_history=False):
         state_history = []
+        losses = []
+
         for t in count():
             # Select and perform an action
             eps_threshold = self.cfg.EPS_END + (self.cfg.EPS_START - self.cfg.EPS_END) \
@@ -103,10 +118,18 @@ class DQNTrainer(object):
             self.agent.state = next_state
 
             # Perform one step of the optimization (on the target network)
-            self.step()
+            step_loss = self.step()
+            if step_loss is not None:
+                losses.append(step_loss.item())
 
             if done:
                 self.episode_durations.append(t + 1)
+
+                mean_loss = -1
+                if len(losses) != 0:
+                    mean_loss = np.array(losses).mean()
+                self.episode_mean_losses.append(mean_loss)
+
                 if self.cfg.VISUALIZE:
                     visualization.plot_durations(self.episode_durations)
                 return state_history
@@ -135,7 +158,7 @@ class DQNTrainer(object):
 
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
         # columns of actions taken. These are the actions which would've been taken
-        # for each batch state according to policy_net
+        # for each batch state according to policy_net.
         state_action_values = self.agent.policy_net(state_batch).gather(1, action_batch)
 
         # Compute V(s_{t+1}) for all next states.
@@ -171,6 +194,8 @@ class DQNTrainer(object):
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
+        return loss
+
     def validate(self):
         validation_scores = []
         for state in self.env_state_list:
@@ -184,9 +209,8 @@ class DQNTrainer(object):
             'model': self.target_net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'amp': amp.state_dict(),
-            'episode': episode,
             'steps_done': self.steps_done,
-            'init_episode': self.init_episode
+            'init_episode': self.curr_episode
         }
         fpath = 'checkpoint_' + \
                 ('%d' % episode if episode is not None else '0') + '.pt'
