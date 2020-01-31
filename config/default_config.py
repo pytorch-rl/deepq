@@ -17,7 +17,7 @@ def get_default_params():
         'EPS_DECAY': 200,
 
         'LEARNING_RATE': 0.00025,
-        'ALPHA': 0.25,
+        'ALPHA': 0.250,
         'REPLAY_BUFFER_SIZE': 1000000,
         'LEARNING_STARTS': 50000,
 
