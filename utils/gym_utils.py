@@ -14,6 +14,7 @@ def get_cart_location(env, screen_width):
     scale = screen_width / world_width
     return int(env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
 
+
 def get_screen(env):
     # Returned screen requested by gym is 400x600x3, but is sometimes larger
     # such as 800x1200x3. Transpose it into torch order (CHW).
@@ -38,11 +39,3 @@ def get_screen(env):
     screen = torch.from_numpy(screen)
     # Resize, and add a batch dimension (BCHW)
     return resize(screen).unsqueeze(0)
-
-#
-# env.reset()
-# plt.figure()
-# plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-#            interpolation='none')
-# plt.title('Example extracted screen')
-# plt.show()
