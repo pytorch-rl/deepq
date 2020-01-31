@@ -1,10 +1,10 @@
+
 import os
 import math
 import random
 import time
 from itertools import count
 import signal
-import functools
 
 import numpy as np
 import torch
@@ -19,8 +19,7 @@ from utils import visualization
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
-                 num_episodes, device,
-                 env_state_list):
+                 num_episodes, device, env_state_list):
 
         self.cfg = train_cfg
         self.agent = agent
@@ -30,10 +29,6 @@ class DQNTrainer(object):
         self.policy_net = policy_net
         self.memory = memory
         self.steps_done = 0
-
-        self.curr_episode = None
-        self.init_episode = 0
-
         self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
@@ -62,8 +57,7 @@ class DQNTrainer(object):
             current_screen = gym_utils.get_screen(self.env).to(self.device)
             self.agent.state = current_screen - last_screen
 
-            _ = self._play_episode(current_screen)
-
+            self._play_episode(current_screen)
             # Update the target network, copying all weights and biases in DQN
             if i_episode % self.cfg.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
@@ -72,7 +66,8 @@ class DQNTrainer(object):
                 validation_score = self.validate()
                 self.validation_score_list.append(validation_score)
                 episodes_list.append(i_episode)
-                visualization.plot_validation_score(self.validation_score_list,
+                if self.cfg.VISUALIZE:
+                    visualization.plot_validation_score(self.validation_score_list,
                                                     episodes_list)
 
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
@@ -113,7 +108,8 @@ class DQNTrainer(object):
 
             if done:
                 self.episode_durations.append(t + 1)
-                visualization.plot_durations(self.episode_durations)
+                if self.cfg.VISUALIZE:
+                    visualization.plot_durations(self.episode_durations)
                 return state_history
 
     def step(self):
