@@ -19,7 +19,7 @@ from utils import visualization
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
-                 num_episodes, device, env_state_list):
+                 num_episodes, device, env_random_state_list, env_initial_state_screen_list):
 
         self.cfg = train_cfg
         self.agent = agent
@@ -29,11 +29,14 @@ class DQNTrainer(object):
         self.policy_net = policy_net
         self.memory = memory
         self.steps_done = 0
+        self.init_episode = 0
         self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
-        self.validation_score_list = []
-        self.env_state_list = env_state_list
+        self.estimated_validation_score_list = []
+        self.empirical_validation_score_list = []
+        self.env_random_state_list = env_random_state_list
+        self.env_initial_state_screen_list = env_initial_state_screen_list
 
         self.logger = utils.logx.EpochLogger(
             self.cfg.LOG.OUTPUT_DIR,
@@ -46,7 +49,8 @@ class DQNTrainer(object):
     def train(self):
         start_time = time.time()
 
-        episodes_list = []
+        estimated_validation_episodes_list = []
+        empirical_validation_episodes_list = []
         for i_episode in range(self.init_episode, self.num_episodes):
             self.curr_episode = i_episode
             self._graceful_exit()
@@ -57,23 +61,40 @@ class DQNTrainer(object):
             current_screen = gym_utils.get_screen(self.env).to(self.device)
             self.agent.state = current_screen - last_screen
 
-            self._play_episode(current_screen)
+            self._train_episode(current_screen)
             # Update the target network, copying all weights and biases in DQN
             if i_episode % self.cfg.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
 
-            if i_episode % self.cfg.VALIDATE_FREQUENCY == 0:
-                validation_score = self.validate()
-                self.validation_score_list.append(validation_score)
-                episodes_list.append(i_episode)
+            if i_episode % self.cfg.ESTIMATED_VALIDATION_FREQUENCY == 0:
+                validation_score = self.validate(val_type='q_value')
+                self.estimated_validation_score_list.append(validation_score)
+                estimated_validation_episodes_list.append(i_episode)
                 if self.cfg.VISUALIZE:
-                    visualization.plot_validation_score(self.validation_score_list,
-                                                    episodes_list)
+                    visualization.plot_validation_score(self.estimated_validation_score_list,
+                                                        estimated_validation_episodes_list,
+                                                        fig_num=3, y_label='Q value')
+
+            if (i_episode % self.cfg.EMPIRICAL_VALIDATION_FREQUENCY == 0) and (i_episode > 0):
+                validation_score = self.validate(val_type='score')
+                self.empirical_validation_score_list.append(validation_score)
+                empirical_validation_episodes_list.append(i_episode)
+                if self.cfg.VISUALIZE:
+
+                    visualization.plot_validation_score(self.empirical_validation_score_list,
+                                                        empirical_validation_episodes_list,
+                                                        fig_num=4, y_label='Duration')
+
 
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-    def _play_episode(self, current_screen, return_state_history=False):
+    def _train_episode(self, current_screen):
+        """
+
+        :param current_screen:
+        :return:
+        """
         state_history = []
         for t in count():
             # Select and perform an action
@@ -87,9 +108,6 @@ class DQNTrainer(object):
             reward = torch.tensor([reward], device=self.device)
 
             # Observe new state
-            if return_state_history:
-                state_history.append(current_screen)
-
             last_screen = current_screen
             current_screen = gym_utils.get_screen(self.env).to(self.device)
             if not done:
@@ -107,10 +125,11 @@ class DQNTrainer(object):
             self.step()
 
             if done:
-                self.episode_durations.append(t + 1)
+                episode_duration = t + 1
+                self.episode_durations.append(episode_duration)
                 if self.cfg.VISUALIZE:
                     visualization.plot_durations(self.episode_durations)
-                return state_history
+                return
 
     def step(self):
 
@@ -172,13 +191,23 @@ class DQNTrainer(object):
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-    def validate(self):
-        validation_scores = []
-        for state in self.env_state_list:
-            current_state_q = max(
+    def validate(self, val_type='q_value'):
+        validation_values = []
+        if val_type == 'q_value':
+            for state in self.env_random_state_list:
+                current_state_q = max(
                     self.policy_net(state.to(self.device)).data.cpu().numpy()[0])
-            validation_scores.append(current_state_q)
-        return np.mean(validation_scores)
+                validation_values.append(current_state_q)
+            validation_value = np.mean(validation_values)
+        elif val_type == 'score':
+            for state, screen in self.env_initial_state_screen_list:
+                # Initialize the state.
+                self.env.reset()
+                self.agent.state = state
+                _, episode_duration = self.agent._play_episode(current_screen=screen)
+                validation_values.append(episode_duration)
+            validation_value = np.mean(validation_values)
+        return validation_value
 
     def _save_ckpt(self, episode=None):
         checkpoint = {
@@ -227,12 +256,55 @@ class DQNTrainer(object):
             newest_ckpt_name = max(files, key=lambda x: int(x.split('.')[0].split('_')[-1]))
         return newest_ckpt_name
 
+
 class DQNAgent(object):
-    def __init__(self, policy_net, n_actions, device):
+    def __init__(self, policy_net, n_actions, device, env, epsilon=0.05):
         self.policy_net = policy_net
         self.state = None
         self.n_actions = n_actions
         self.device = device
+        self.env = env
+        self.epsilon = epsilon
+
+    def _play_episode(self, current_screen):
+        """
+
+        :param current_screen:
+        :param return_state_history:
+        :param validation:
+        :return:
+        """
+        states = []
+        for t in count():
+
+            # Select and perform an action
+            eps_threshold = self.epsilon
+            action = self.select_action(eps_threshold)
+            # self.steps_done += 1
+            _, _, done, _ = self.env.step(action.item())
+
+            states.append(current_screen)
+
+            last_screen = current_screen
+            current_screen = gym_utils.get_screen(self.env).to(self.device)
+            if not done:
+                next_state = current_screen - last_screen
+            else:
+                next_state = None
+
+            # Store the transition in memory
+            # self.memory.push(self.agent.state, action, next_state, reward)
+
+            # Move to the next state
+            self.state = next_state
+
+            # Perform one step of the optimization (on the target network)
+            # self.step()
+
+            if done:
+                episode_duration = t + 1
+                return states, episode_duration
+
 
     def select_action(self, eps_threshold):
         sample = random.random()

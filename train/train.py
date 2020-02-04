@@ -52,20 +52,23 @@ def main():
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
-    optimizer = optim.RMSprop(policy_net.parameters())
+    # optimizer = optim.RMSprop(policy_net.parameters())
+    optimizer = optim.Adam(policy_net.parameters())
 
     [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net], optimizer,
                                       opt_level=cfg.TRAIN.OPT_LEVEL)
-    memory = replay_mem.ReplayMemory(10000)
 
-    num_episodes = 5000
+    memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
 
-    env_state_list = pickle.load(open(cfg.PATHS.VALIDATION_SET_PATH, 'rb'))
+    env_random_state_list = pickle.load(open(cfg.PATHS.ESTIMATED_VALIDATION_SET_PATH, 'rb'))
+    env_initial_state_screen_list = pickle.load(open(cfg.PATHS.EMPIRICAL_VALIDATION_SET_PATH, 'rb'))
+    # env_initial_state_list = list(zip(*env_initial_state_screen_list)[0])
+    # env_initial_screen_list = list(zip(*env_initial_state_screen_list)[1])
 
-    agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
+    agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env, cfg.TRAIN.EPS_END)
     trainer = algorithms.dqn.trainer.DQNTrainer(
         cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
-        num_episodes, device, env_state_list)
+        cfg.TRAIN.NUM_EPISODES, device, env_random_state_list, env_initial_state_screen_list)
 
     trainer.train()
 

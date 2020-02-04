@@ -22,13 +22,13 @@ def plot_durations(episode_durations):
     #     display.display(plt.gcf())
 
 
-def plot_validation_score(validation_score_list, episodes_list):
-    plt.figure(3)
+def plot_validation_score(validation_score_list, episodes_list, fig_num=3, y_label='Q value'):
+    plt.figure(fig_num)
     plt.clf()
     validation_score_list_t = torch.tensor(validation_score_list, dtype=torch.float)
     plt.title('Training...')
     plt.xlabel('Episode')
-    plt.ylabel('Q value')
+    plt.ylabel(y_label)
     plt.plot(episodes_list ,validation_score_list_t.numpy())
     # Take 100 episode averages and plot them too
     plt.pause(0.001)  # pause a bit so that plots are updated
