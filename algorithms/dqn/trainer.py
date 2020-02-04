@@ -33,8 +33,8 @@ class DQNTrainer(object):
         self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
-        self.estimated_validation_score_list = []
-        self.empirical_validation_score_list = []
+        self.q_validation_score_list = []
+        self.score_validation_score_list = []
         self.env_random_state_list = env_random_state_list
         self.env_initial_state_screen_list = env_initial_state_screen_list
 
@@ -49,8 +49,8 @@ class DQNTrainer(object):
     def train(self):
         start_time = time.time()
 
-        estimated_validation_episodes_list = []
-        empirical_validation_episodes_list = []
+        q_validation_episodes_list = []
+        score_validation_episodes_list = []
         for i_episode in range(self.init_episode, self.num_episodes):
             self.curr_episode = i_episode
             self._graceful_exit()
@@ -66,23 +66,25 @@ class DQNTrainer(object):
             if i_episode % self.cfg.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.agent.policy_net.state_dict())
 
-            if i_episode % self.cfg.ESTIMATED_VALIDATION_FREQUENCY == 0:
+            if (i_episode % self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY == 0) and\
+                    (self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY != -1):
                 validation_score = self.validate(val_type='q_value')
-                self.estimated_validation_score_list.append(validation_score)
-                estimated_validation_episodes_list.append(i_episode)
+                self.q_validation_score_list.append(validation_score)
+                q_validation_episodes_list.append(i_episode)
                 if self.cfg.VISUALIZE:
-                    visualization.plot_validation_score(self.estimated_validation_score_list,
-                                                        estimated_validation_episodes_list,
+                    visualization.plot_validation_score(self.q_validation_score_list,
+                                                        q_validation_episodes_list,
                                                         fig_num=3, y_label='Q value')
 
-            if (i_episode % self.cfg.EMPIRICAL_VALIDATION_FREQUENCY == 0) and (i_episode > 0):
+            if (i_episode % self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY == 0) and (i_episode > 0) and\
+                    (self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1):
                 validation_score = self.validate(val_type='score')
-                self.empirical_validation_score_list.append(validation_score)
-                empirical_validation_episodes_list.append(i_episode)
+                self.score_validation_score_list.append(validation_score)
+                score_validation_episodes_list.append(i_episode)
                 if self.cfg.VISUALIZE:
 
-                    visualization.plot_validation_score(self.empirical_validation_score_list,
-                                                        empirical_validation_episodes_list,
+                    visualization.plot_validation_score(self.score_validation_score_list,
+                                                        score_validation_episodes_list,
                                                         fig_num=4, y_label='Duration')
 
 

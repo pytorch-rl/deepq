@@ -23,7 +23,7 @@ from config.default_config import cfg
 ex = Experiment()
 
 
-VALIDATION_SET_SIZE = 10
+VALIDATION_SET_SIZE = 1000
 EPISODES_TO_PLAY = 10
 SEED = 7
 PATH_TO_SAVE = '/raid/algo/SOCISP_SLOW/ADAS/Courses/mspacman/data/validation_set_initial_' + str(VALIDATION_SET_SIZE) + '.pickle'

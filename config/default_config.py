@@ -5,8 +5,8 @@ def get_default_params():
     default_params = dict()
 
     default_params['PATHS'] = {
-        'ESTIMATED_VALIDATION_SET_PATH': '',
-        'EMPIRICAL_VALIDATION_SET_PATH': '',
+        'Q_VALIDATION_SET_PATH': '',
+        'SCORE_VALIDATION_SET_PATH': '',
     }
 
     default_params['TRAIN'] = {
@@ -21,8 +21,6 @@ def get_default_params():
         'NUM_EPISODES': 50000,
         'OPT_LEVEL': 'O1',
 
-        'ESTIMATED_VALIDATION_FREQUENCY': 10,
-        'EMPIRICAL_VALIDATION_FREQUENCY': 100,
         'CKPT_SAVE_FREQ': 10,
         'CKPT_PATH': '',
         'CKPT_SAVE_DIR': '',
@@ -32,6 +30,12 @@ def get_default_params():
             'OUTPUT_FNAME': 'progress.txt',
             'EXP_NAME': '',
             'SAVE_FREQ': 1,
+        },
+
+        'VALIDATION': {
+            'Q_VALIDATION_FREQUENCY': 10,
+            'SCORE_VALIDATION_FREQUENCY': 100,
+            'SCORE_VALIDATION_SIZE': 10,
         },
 
         'VISUALIZE': False,
