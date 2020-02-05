@@ -112,8 +112,11 @@ class DQNTrainer(object):
     def _train_episode(self, current_screen):
         """
 
-        :param current_screen:
-        :return:
+        Args:
+            current_screen:
+
+        Returns:
+
         """
         state_history = []
         losses = []
@@ -289,7 +292,7 @@ class DQNTrainer(object):
 
 
 class DQNAgent(object):
-    def __init__(self, policy_net, n_actions, device, env, epsilon=0.05):
+    def __init__(self, policy_net, n_actions, device, env, epsilon=0.0):
         self.policy_net = policy_net
         self.state = None
         self.n_actions = n_actions
@@ -300,10 +303,11 @@ class DQNAgent(object):
     def _play_episode(self, current_screen):
         """
 
-        :param current_screen:
-        :param return_state_history:
-        :param validation:
-        :return:
+        Args:
+            current_screen:
+
+        Returns:
+
         """
         states = []
         for t in count():
@@ -323,14 +327,7 @@ class DQNAgent(object):
             else:
                 next_state = None
 
-            # Store the transition in memory
-            # self.memory.push(self.agent.state, action, next_state, reward)
-
-            # Move to the next state
             self.state = next_state
-
-            # Perform one step of the optimization (on the target network)
-            # self.step()
 
             if done:
                 episode_duration = t + 1

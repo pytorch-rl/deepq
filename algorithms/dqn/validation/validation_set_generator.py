@@ -32,7 +32,7 @@ PATH_TO_SAVE = '/raid/algo/SOCISP_SLOW/ADAS/Courses/mspacman/data/validation_set
 @ex.main
 def generate_init_states_list():
     """
-    generates a validation random initial states and screens and saves it as .pickle
+    Generates a validation random initial states and screens and saves it as .pickle.
     """
     env = gym.make('CartPole-v0').unwrapped
     env.seed(SEED)
@@ -40,6 +40,7 @@ def generate_init_states_list():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     init_state_list = []
     init_screen_list = []
+
     for i_episode in range(EPISODES_TO_PLAY):
         env.reset()
         last_screen = gym_utils.get_screen(env).to(device)
@@ -47,15 +48,15 @@ def generate_init_states_list():
         init_state = current_screen - last_screen
         init_state_list.append(init_state)
         init_screen_list.append(current_screen)
+
     init_state_screen_list = list(zip(init_state_list, init_screen_list))
-    # pickle.dump(init_state_list, open(PATH_TO_SAVE, 'wb'))
     pickle.dump(init_state_screen_list, open(PATH_TO_SAVE, 'wb'))
 
 
 def generate_random_states_list():
     """
-    generates a validation set of randomly chosen samples from episodes played with randomly
-    initialized policy net and saves it as .pickle
+    Generates a validation set of randomly chosen samples from episodes played with randomly
+    initialized policy net and saves it as .pickle.
     """
     env = gym.make('CartPole-v0').unwrapped
     env.seed(SEED)
