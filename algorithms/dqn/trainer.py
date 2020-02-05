@@ -19,7 +19,7 @@ from utils import visualization
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
-                 num_episodes, device, env_random_state_list, env_initial_state_screen_list):
+                 num_episodes, device, env_random_states, env_initial_states_screens):
 
         self.cfg = train_cfg
         self.agent = agent
@@ -34,10 +34,10 @@ class DQNTrainer(object):
         self.device = device
         self.episode_durations = []
         self.episode_mean_losses = []
-        self.q_validation_score_list = []
-        self.score_validation_score_list = []
-        self.env_random_state_list = env_random_state_list
-        self.env_initial_state_screen_list = env_initial_state_screen_list
+        self.q_validation_scores = []
+        self.score_validation_scores = []
+        self.env_random_states = env_random_states
+        self.env_initial_states_screens = env_initial_states_screens
 
         self._load_ckpt(self.cfg.CKPT_PATH)
 
@@ -52,8 +52,8 @@ class DQNTrainer(object):
         # Set a signal handler.
         self._graceful_exit()
 
-        q_validation_episodes_list = []
-        score_validation_episodes_list = []
+        q_validation_episodes = []
+        score_validation_episodes = []
         for i_episode in range(self.init_episode, self.num_episodes):
             start_time = time.time()
             self.curr_episode = i_episode
@@ -72,22 +72,21 @@ class DQNTrainer(object):
             if (i_episode % self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY == 0) and\
                     (self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY != -1):
                 validation_score = self.validate(val_type='q_value')
-                self.q_validation_score_list.append(validation_score)
-                q_validation_episodes_list.append(i_episode)
+                self.q_validation_scores.append(validation_score)
+                q_validation_episodes.append(i_episode)
                 if self.cfg.VISUALIZE:
-                    visualization.plot_validation_score(self.q_validation_score_list,
-                                                        q_validation_episodes_list,
+                    visualization.plot_validation_score(self.q_validation_scores,
+                                                        q_validation_episodes,
                                                         fig_num=3, y_label='Q value')
 
             if (i_episode % self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY == 0) and (i_episode > 0) and\
                     (self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1):
                 validation_score = self.validate(val_type='score')
-                self.score_validation_score_list.append(validation_score)
-                score_validation_episodes_list.append(i_episode)
+                self.score_validation_scores.append(validation_score)
+                score_validation_episodes.append(i_episode)
                 if self.cfg.VISUALIZE:
-
-                    visualization.plot_validation_score(self.score_validation_score_list,
-                                                        score_validation_episodes_list,
+                    visualization.plot_validation_score(self.score_validation_scores,
+                                                        score_validation_episodes,
                                                         fig_num=4, y_label='Duration')
 
 
@@ -98,6 +97,14 @@ class DQNTrainer(object):
             self.logger.log_tabular('Epoch', i_episode)
             self.logger.log_tabular('TotalGradientSteps', self.steps_done)
             self.logger.log_tabular('EpisodeDuration', self.episode_durations[-1])
+            if len(self.q_validation_scores) != 0:
+                self.logger.log_tabular('QValidation', self.q_validation_scores[-1])
+            else:
+                self.logger.log_tabular('QValidation', -1)
+            if len(self.score_validation_scores) != 0:
+                self.logger.log_tabular('ScoreValidation', self.score_validation_scores[-1])
+            else:
+                self.logger.log_tabular('ScoreValidation', -1)
             self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
             self.logger.log_tabular('Time', time.time() - start_time)
             self.logger.dump_tabular()
@@ -216,21 +223,22 @@ class DQNTrainer(object):
         return loss
 
     def validate(self, val_type='q_value'):
-        validation_values = []
-        if val_type == 'q_value':
-            for state in self.env_random_state_list:
-                current_state_q = max(
-                    self.policy_net(state.to(self.device)).data.cpu().numpy()[0])
-                validation_values.append(current_state_q)
-            validation_value = np.mean(validation_values)
-        elif val_type == 'score':
-            for state, screen in self.env_initial_state_screen_list:
-                # Initialize the state.
-                self.env.reset()
-                self.agent.state = state
-                _, episode_duration = self.agent._play_episode(current_screen=screen)
-                validation_values.append(episode_duration)
-            validation_value = np.mean(validation_values)
+        with torch.no_grad():
+            validation_values = []
+            if val_type == 'q_value':
+                for state in self.env_random_states:
+                    current_state_q = max(
+                        self.policy_net(state.to(self.device)).data.cpu().numpy()[0])
+                    validation_values.append(current_state_q)
+                validation_value = np.mean(validation_values)
+            elif val_type == 'score':
+                for state, screen in self.env_initial_states_screens:
+                    # Initialize the state.
+                    self.env.reset()
+                    self.agent.state = state
+                    _, episode_duration = self.agent._play_episode(current_screen=screen)
+                    validation_values.append(episode_duration)
+                validation_value = np.mean(validation_values)
         return validation_value
 
     def _save_ckpt(self, episode=None):
