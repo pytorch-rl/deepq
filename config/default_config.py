@@ -30,6 +30,7 @@ def get_default_params():
             'OUTPUT_FNAME': 'progress.txt',
             'EXP_NAME': '',
             'SAVE_FREQ': 1,
+            'APPEND': True
         },
 
         'VALIDATION': {

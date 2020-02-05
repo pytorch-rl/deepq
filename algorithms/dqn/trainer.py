@@ -33,27 +33,30 @@ class DQNTrainer(object):
         self.num_episodes = num_episodes
         self.device = device
         self.episode_durations = []
+        self.episode_mean_losses = []
         self.q_validation_score_list = []
         self.score_validation_score_list = []
         self.env_random_state_list = env_random_state_list
         self.env_initial_state_screen_list = env_initial_state_screen_list
 
+        self._load_ckpt(self.cfg.CKPT_PATH)
+
         self.logger = utils.logx.EpochLogger(
             self.cfg.LOG.OUTPUT_DIR,
             self.cfg.LOG.OUTPUT_FNAME,
-            self.cfg.LOG.EXP_NAME
+            self.cfg.LOG.EXP_NAME,
+            self.cfg.LOG.APPEND
         )
 
-        self._load_ckpt(self.cfg.CKPT_PATH)
-
     def train(self):
-        start_time = time.time()
+        # Set a signal handler.
+        self._graceful_exit()
 
         q_validation_episodes_list = []
         score_validation_episodes_list = []
         for i_episode in range(self.init_episode, self.num_episodes):
+            start_time = time.time()
             self.curr_episode = i_episode
-            self._graceful_exit()
 
             # Initialize the environment and state.
             self.env.reset()
@@ -91,6 +94,14 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
+            # Scalar logging.
+            self.logger.log_tabular('Epoch', i_episode)
+            self.logger.log_tabular('TotalGradientSteps', self.steps_done)
+            self.logger.log_tabular('EpisodeDuration', self.episode_durations[-1])
+            self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
+            self.logger.log_tabular('Time', time.time() - start_time)
+            self.logger.dump_tabular()
+
     def _train_episode(self, current_screen):
         """
 
@@ -98,6 +109,8 @@ class DQNTrainer(object):
         :return:
         """
         state_history = []
+        losses = []
+
         for t in count():
             # Select and perform an action
             eps_threshold = self.cfg.EPS_END + (self.cfg.EPS_START - self.cfg.EPS_END) \
@@ -124,9 +137,16 @@ class DQNTrainer(object):
             self.agent.state = next_state
 
             # Perform one step of the optimization (on the target network)
-            self.step()
+            step_loss = self.step()
+            if step_loss is not None:
+                losses.append(step_loss.item())
 
             if done:
+                mean_loss = -1
+                if len(losses) != 0:
+                    mean_loss = np.array(losses).mean()
+                self.episode_mean_losses.append(mean_loss)
+
                 episode_duration = t + 1
                 self.episode_durations.append(episode_duration)
                 if self.cfg.VISUALIZE:
@@ -157,7 +177,7 @@ class DQNTrainer(object):
 
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
         # columns of actions taken. These are the actions which would've been taken
-        # for each batch state according to policy_net
+        # for each batch state according to policy_net.
         state_action_values = self.agent.policy_net(state_batch).gather(1, action_batch)
 
         # Compute V(s_{t+1}) for all next states.
@@ -193,6 +213,8 @@ class DQNTrainer(object):
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
+        return loss
+
     def validate(self, val_type='q_value'):
         validation_values = []
         if val_type == 'q_value':
@@ -216,9 +238,8 @@ class DQNTrainer(object):
             'model': self.target_net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'amp': amp.state_dict(),
-            'episode': episode,
             'steps_done': self.steps_done,
-            'init_episode': self.init_episode
+            'init_episode': self.curr_episode
         }
         fpath = 'checkpoint_' + \
                 ('%d' % episode if episode is not None else '0') + '.pt'
