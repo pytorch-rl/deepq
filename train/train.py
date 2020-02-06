@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import pickle
 
 from config.default_config import cfg
-from apex import amp, optimizers
+# from apex import amp, optimizers
 
 import utils.yaml_utils
 from algorithms.dqn.utils import replay_mem, dqn_algo
@@ -34,16 +34,16 @@ def main():
         sampler=optuna.samplers.TPESampler(),
         direction='maximize',
         study_name='cartpole_rl',
-        storage='sqlite:///cartpole_rl_hp_opt_1.db',
+        storage=f'sqlite:///cartpole_rl_hp_opt_1.db',
         load_if_exists=True
     )
 
-    study.optimize(train, n_trials=10)
+    study.optimize(train, n_trials=100)
 
 
 def train(trial):
     cfg.TRAIN.GAMMA = trial.suggest_uniform('GAMMA', 0.95, 0.99)
-    cfg.TRAIN.EPS_DECAY = trial.suggest_uniform('EPS_DECAY', 100, 400)
+    cfg.TRAIN.EPS_DECAY = trial.suggest_uniform('EPS_DECAY', 100, 600)
     lr = trial.suggest_loguniform('lr', 1e-4, 1e-2)
 
     env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
@@ -68,23 +68,23 @@ def train(trial):
     optimizer = optim.Adam(policy_net.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5,
                                                        last_epoch=-1)
-    if torch.cuda.is_available():
-        [target_net, policy_net], optimizer = amp.initialize(
-            [target_net, policy_net], optimizer,
-            opt_level=cfg.TRAIN.OPT_LEVEL)
+    # if torch.cuda.is_available():
+    #     [target_net, policy_net], optimizer = amp.initialize(
+    #         [target_net, policy_net], optimizer,
+    #         opt_level=cfg.TRAIN.OPT_LEVEL)
+
     memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
-    env_random_states = pickle.load(
-        open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
-    env_initial_states_screens = pickle.load(
-        open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
-    env_initial_states_screens = env_initial_states_screens[
-                                 :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
+    # env_random_states = pickle.load(
+    #     open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
+    # env_initial_states_screens = pickle.load(
+    #     open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
+    # env_initial_states_screens = env_initial_states_screens[
+    #                              :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env,
                                             cfg.TRAIN.EPS_END)
     trainer = algorithms.dqn.trainer.DQNTrainer(
         cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
-        cfg.TRAIN.NUM_EPISODES, device, env_random_states,
-        env_initial_states_screens,
+        cfg.TRAIN.NUM_EPISODES, device,
         scheduler
     )
     trainer.train()

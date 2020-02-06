@@ -8,7 +8,7 @@ import signal
 import numpy as np
 import torch
 import torch.nn.functional as F
-from apex import amp
+# from apex import amp
 
 import utils.logx
 from algorithms.dqn.utils import replay_mem
@@ -19,8 +19,7 @@ from utils import visualization
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory,
                  optimizer,
-                 num_episodes, device, env_random_states,
-                 env_initial_states_screens, scheduler):
+                 num_episodes, device, scheduler):
 
         self.cfg = train_cfg
         self.agent = agent
@@ -37,8 +36,8 @@ class DQNTrainer(object):
         self.episode_mean_losses = []
         self.q_validation_scores = []
         self.score_validation_scores = []
-        self.env_random_states = env_random_states
-        self.env_initial_states_screens = env_initial_states_screens
+        # self.env_random_states = env_random_states
+        # self.env_initial_states_screens = env_initial_states_screens
         self.scheduler = scheduler
         self.metric = -1
 
@@ -72,30 +71,30 @@ class DQNTrainer(object):
                 self.target_net.load_state_dict(
                     self.agent.policy_net.state_dict())
 
-            if (
-                    i_episode % self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY == 0) and \
-                    (self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY != -1):
-                validation_score = self.validate(val_type='q_value')
-                self.q_validation_scores.append(validation_score)
-                q_validation_episodes.append(i_episode)
-                if self.cfg.VISUALIZE:
-                    visualization.plot_validation_score(
-                        self.q_validation_scores,
-                        q_validation_episodes,
-                        fig_num=3, y_label='Q value')
-
-            if (
-                    i_episode % self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY == 0) and (
-                    i_episode > 0) and \
-                    (self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1):
-                validation_score = self.validate(val_type='score')
-                self.score_validation_scores.append(validation_score)
-                score_validation_episodes.append(i_episode)
-                if self.cfg.VISUALIZE:
-                    visualization.plot_validation_score(
-                        self.score_validation_scores,
-                        score_validation_episodes,
-                        fig_num=4, y_label='Duration')
+            # if (
+            #         i_episode % self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY == 0) and \
+            #         (self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY != -1):
+            #     validation_score = self.validate(val_type='q_value')
+            #     self.q_validation_scores.append(validation_score)
+            #     q_validation_episodes.append(i_episode)
+            #     if self.cfg.VISUALIZE:
+            #         visualization.plot_validation_score(
+            #             self.q_validation_scores,
+            #             q_validation_episodes,
+            #             fig_num=3, y_label='Q value')
+            #
+            # if (
+            #         i_episode % self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY == 0) and (
+            #         i_episode > 0) and \
+            #         (self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1):
+            #     validation_score = self.validate(val_type='score')
+            #     self.score_validation_scores.append(validation_score)
+            #     score_validation_episodes.append(i_episode)
+            #     if self.cfg.VISUALIZE:
+            #         visualization.plot_validation_score(
+            #             self.score_validation_scores,
+            #             score_validation_episodes,
+            #             fig_num=4, y_label='Duration')
 
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
@@ -110,16 +109,16 @@ class DQNTrainer(object):
                                     self.episode_durations[-1])
             self.logger.log_tabular('MeanEpisodeDuration',
                                     np.mean(self.episode_durations[-100:]))
-            if len(self.q_validation_scores) != 0:
-                self.logger.log_tabular('QValidation',
-                                        self.q_validation_scores[-1])
-            else:
-                self.logger.log_tabular('QValidation', -1)
-            if len(self.score_validation_scores) != 0:
-                self.logger.log_tabular('ScoreValidation',
-                                        self.score_validation_scores[-1])
-            else:
-                self.logger.log_tabular('ScoreValidation', -1)
+            # if len(self.q_validation_scores) != 0:
+            #     self.logger.log_tabular('QValidation',
+            #                             self.q_validation_scores[-1])
+            # else:
+            #     self.logger.log_tabular('QValidation', -1)
+            # if len(self.score_validation_scores) != 0:
+            #     self.logger.log_tabular('ScoreValidation',
+            #                             self.score_validation_scores[-1])
+            # else:
+            #     self.logger.log_tabular('ScoreValidation', -1)
             self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
             self.logger.log_tabular('Time', time.time() - start_time)
 
@@ -237,8 +236,9 @@ class DQNTrainer(object):
         # Optimize the model
         self.optimizer.zero_grad()
 
-        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-            scaled_loss.backward()
+        # with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+        #     scaled_loss.backward()
+        loss.backward()
 
         for param in self.agent.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
@@ -246,32 +246,32 @@ class DQNTrainer(object):
 
         return loss
 
-    def validate(self, val_type='q_value'):
-        with torch.no_grad():
-            validation_values = []
-            if val_type == 'q_value':
-                for state in self.env_random_states:
-                    current_state_q = max(
-                        self.policy_net(
-                            state.to(self.device)).data.cpu().numpy()[0])
-                    validation_values.append(current_state_q)
-                validation_value = np.mean(validation_values)
-            elif val_type == 'score':
-                for state, screen in self.env_initial_states_screens:
-                    # Initialize the state.
-                    self.env.reset()
-                    self.agent.state = state
-                    _, episode_duration = self.agent._play_episode(
-                        current_screen=screen)
-                    validation_values.append(episode_duration)
-                validation_value = np.mean(validation_values)
-        return validation_value
+    # def validate(self, val_type='q_value'):
+    #     with torch.no_grad():
+    #         validation_values = []
+    #         if val_type == 'q_value':
+    #             for state in self.env_random_states:
+    #                 current_state_q = max(
+    #                     self.policy_net(
+    #                         state.to(self.device)).data.cpu().numpy()[0])
+    #                 validation_values.append(current_state_q)
+    #             validation_value = np.mean(validation_values)
+    #         elif val_type == 'score':
+    #             for state, screen in self.env_initial_states_screens:
+    #                 # Initialize the state.
+    #                 self.env.reset()
+    #                 self.agent.state = state
+    #                 _, episode_duration = self.agent._play_episode(
+    #                     current_screen=screen)
+    #                 validation_values.append(episode_duration)
+    #             validation_value = np.mean(validation_values)
+    #     return validation_value
 
     def _save_ckpt(self, episode=None):
         checkpoint = {
             'model': self.target_net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'amp': amp.state_dict(),
+            # 'amp': amp.state_dict(),
             'steps_done': self.steps_done,
             'init_episode': self.curr_episode
         }
@@ -292,7 +292,7 @@ class DQNTrainer(object):
             checkpoint = torch.load(ckpt_path)
             self.policy_net.load_state_dict(checkpoint['model'])
             self.optimizer.load_state_dict(checkpoint['optimizer'])
-            amp.load_state_dict(checkpoint['amp'])
+            # amp.load_state_dict(checkpoint['amp'])
             self.steps_done = checkpoint['steps_done']
             self.init_episode = checkpoint['init_episode']
 
@@ -307,6 +307,11 @@ class DQNTrainer(object):
         exit(0)
 
     def _get_newest_ckpt(self):
+
+        if not os.path.isdir(self.cfg.CKPT_SAVE_DIR):
+            os.makedirs(self.cfg.CKPT_SAVE_DIR)
+            print(f'Created results dir at {self.cfg.CKPT_SAVE_DIR}')
+
         files = os.listdir(self.cfg.CKPT_SAVE_DIR)
         newest_ckpt_name = None
         if files != []:
