@@ -40,6 +40,7 @@ class DQNTrainer(object):
         self.env_random_states = env_random_states
         self.env_initial_states_screens = env_initial_states_screens
         self.scheduler = scheduler
+        self.metric = -1
 
         self._load_ckpt(self.cfg.CKPT_PATH)
 
@@ -99,14 +100,16 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-            if (i_episode + 1) % 100:
-                self.scheduler.step()
+            # if (i_episode + 1) % 100:
+            #     self.scheduler.step()
 
             # Scalar logging.
             self.logger.log_tabular('Epoch', i_episode)
             self.logger.log_tabular('TotalGradientSteps', self.steps_done)
             self.logger.log_tabular('EpisodeDuration',
                                     self.episode_durations[-1])
+            self.logger.log_tabular('MeanEpisodeDuration',
+                                    np.mean(self.episode_durations[-100:]))
             if len(self.q_validation_scores) != 0:
                 self.logger.log_tabular('QValidation',
                                         self.q_validation_scores[-1])
@@ -119,7 +122,10 @@ class DQNTrainer(object):
                 self.logger.log_tabular('ScoreValidation', -1)
             self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
             self.logger.log_tabular('Time', time.time() - start_time)
+
+            self.metric = self.logger.log_current_row['MeanEpisodeDuration']
             self.logger.dump_tabular()
+
 
     def _train_episode(self, current_screen):
         """
