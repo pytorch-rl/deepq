@@ -26,9 +26,13 @@ from sacred.observers import FileStorageObserver
 ex = Experiment()
 
 
+
 @ex.main
 def main():
-    env = gym.make('CartPole-v0').unwrapped
+
+
+    env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
+    env.reset()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if not torch.cuda.is_available():
@@ -37,10 +41,9 @@ def main():
     # Get screen size so that we can initialize layers correctly based on shape
     # returned from AI gym. Typical dimensions at this point are close to 3x40x90
     # which is the result of a clamped and down-scaled render buffer in get_screen()
-    env.reset()
 
-    init_screen = gym_utils.get_screen(env).to(device)
-    _, _, screen_height, screen_width = init_screen.shape
+    init_state = env.get_state().to(device)
+    _, _, screen_height, screen_width = init_state.shape
 
     # Get number of actions from gym action space
     n_actions = env.action_space.n
@@ -53,7 +56,9 @@ def main():
     target_net.eval()
 
     # optimizer = optim.RMSprop(policy_net.parameters())
-    optimizer = optim.Adam(policy_net.parameters())
+    optimizer = optim.Adam(policy_net.parameters(), lr=1e-3)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5,
+                                                       last_epoch=-1)
 
     if torch.cuda.is_available():
         [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net], optimizer,
@@ -68,7 +73,9 @@ def main():
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env, cfg.TRAIN.EPS_END)
     trainer = algorithms.dqn.trainer.DQNTrainer(
         cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
-        cfg.TRAIN.NUM_EPISODES, device, env_random_states, env_initial_states_screens)
+        cfg.TRAIN.NUM_EPISODES, device, env_random_states, env_initial_states_screens,
+        scheduler
+    )
 
     trainer.train()
 
