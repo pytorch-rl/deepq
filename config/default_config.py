@@ -5,7 +5,8 @@ def get_default_params():
     default_params = dict()
 
     default_params['PATHS'] = {
-        'VALIDATION_SET_PATH': ''
+        'Q_VALIDATION_SET_PATH': '',
+        'SCORE_VALIDATION_SET_PATH': '',
     }
 
     default_params['TRAIN'] = {
@@ -15,19 +16,12 @@ def get_default_params():
         'EPS_START': 0.9,
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
+        'REPLAY_MEMORY_SIZE': 10000,
 
-        'LEARNING_RATE': 0.00025,
-        'ALPHA': 0.250,
-        'REPLAY_BUFFER_SIZE': 1000000,
-        'LEARNING_STARTS': 50000,
-
-        'NUM_EPISODES': 100000,
-
+        'NUM_EPISODES': 50000,
         'OPT_LEVEL': 'O1',
 
-        'VALIDATE_FREQUENCY': 10,
-
-        'CKPT_SAVE_FREQ': 100,
+        'CKPT_SAVE_FREQ': 10,
         'CKPT_PATH': '',
         'CKPT_SAVE_DIR': '',
 
@@ -37,6 +31,12 @@ def get_default_params():
             'EXP_NAME': '',
             'SAVE_FREQ': 1,
             'APPEND': True
+        },
+
+        'VALIDATION': {
+            'Q_VALIDATION_FREQUENCY': 10,
+            'SCORE_VALIDATION_FREQUENCY': 100,
+            'SCORE_VALIDATION_SIZE': 10,
         },
 
         'VISUALIZE': False,

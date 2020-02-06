@@ -25,52 +25,72 @@ from sacred.observers import FileStorageObserver
 
 ex = Experiment()
 
+import optuna
+
 
 @ex.main
 def main():
-    env = gym.make('CartPole-v0').unwrapped
+    study = optuna.create_study(
+        sampler=optuna.samplers.TPESampler(),
+        direction='maximize',
+        study_name='cartpole_rl',
+        storage='sqlite:///cartpole_rl_hp_opt_1.db',
+        load_if_exists=True
+    )
 
+    study.optimize(train, n_trials=10)
+
+
+def train(trial):
+    cfg.TRAIN.GAMMA = trial.suggest_uniform('GAMMA', 0.95, 0.99)
+    cfg.TRAIN.EPS_DECAY = trial.suggest_uniform('EPS_DECAY', 100, 400)
+    lr = trial.suggest_loguniform('lr', 1e-4, 1e-2)
+
+    env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
+    env.reset()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if not torch.cuda.is_available():
         print("Running on CPU!!!")
-
     # Get screen size so that we can initialize layers correctly based on shape
     # returned from AI gym. Typical dimensions at this point are close to 3x40x90
     # which is the result of a clamped and down-scaled render buffer in get_screen()
-    env.reset()
-
-    init_screen = gym_utils.get_screen(env).to(device)
-    _, _, screen_height, screen_width = init_screen.shape
-
+    init_state = env.get_state().to(device)
+    _, _, screen_height, screen_width = init_state.shape
     # Get number of actions from gym action space
     n_actions = env.action_space.n
-
-    policy_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(device)
-    target_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(device)
+    policy_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
+        device)
+    target_net = dqn_vanilla.DQN(screen_height, screen_width, n_actions).to(
+        device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
-
-    optimizer = optim.RMSprop(params=policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE, alpha=cfg.TRAIN.ALPHA)
-
-    [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net],
-                                          optimizer, opt_level=cfg.TRAIN.OPT_LEVEL)
-
-    memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_BUFFER_SIZE)
-
-    env_state_list = pickle.load(open(cfg.PATHS.VALIDATION_SET_PATH, 'rb'))
-
-    agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
+    # optimizer = optim.RMSprop(policy_net.parameters())
+    optimizer = optim.Adam(policy_net.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5,
+                                                       last_epoch=-1)
+    if torch.cuda.is_available():
+        [target_net, policy_net], optimizer = amp.initialize(
+            [target_net, policy_net], optimizer,
+            opt_level=cfg.TRAIN.OPT_LEVEL)
+    memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
+    env_random_states = pickle.load(
+        open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
+    env_initial_states_screens = pickle.load(
+        open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
+    env_initial_states_screens = env_initial_states_screens[
+                                 :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
+    agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env,
+                                            cfg.TRAIN.EPS_END)
     trainer = algorithms.dqn.trainer.DQNTrainer(
         cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
-        device, env_state_list)
-
+        cfg.TRAIN.NUM_EPISODES, device, env_random_states,
+        env_initial_states_screens,
+        scheduler
+    )
     trainer.train()
-
     print('Complete')
-    env.render()
-    env.close()
-    plt.ioff()
-    plt.show()
+
+    return trainer.metric
 
 
 def parse_args():
