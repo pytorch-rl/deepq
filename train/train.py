@@ -52,20 +52,23 @@ def main():
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
-    optimizer = optim.RMSprop(policy_net.parameters())
+    # optimizer = optim.RMSprop(policy_net.parameters())
+    optimizer = optim.Adam(policy_net.parameters())
 
-    [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net], optimizer,
-                                      opt_level=cfg.TRAIN.OPT_LEVEL)
-    memory = replay_mem.ReplayMemory(10000)
+    if torch.cuda.is_available():
+        [target_net, policy_net], optimizer = amp.initialize([target_net, policy_net], optimizer,
+                                                             opt_level=cfg.TRAIN.OPT_LEVEL)
 
-    num_episodes = 5000
+    memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
 
-    env_state_list = pickle.load(open(cfg.PATHS.VALIDATION_SET_PATH, 'rb'))
+    env_random_states = pickle.load(open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
+    env_initial_states_screens = pickle.load(open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
+    env_initial_states_screens = env_initial_states_screens[:cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
 
-    agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device)
+    agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env, cfg.TRAIN.EPS_END)
     trainer = algorithms.dqn.trainer.DQNTrainer(
         cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
-        num_episodes, device, env_state_list)
+        cfg.TRAIN.NUM_EPISODES, device, env_random_states, env_initial_states_screens)
 
     trainer.train()
 
