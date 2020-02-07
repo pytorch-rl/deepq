@@ -216,10 +216,10 @@ class DQNTrainer(object):
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
 
-        if self.cfg.OPT_LEVEL == "O0":
-            data_type = torch.float
-        else:
-            data_type = torch.half
+        # self.cfg.OPT_LEVEL == "O0":
+        data_type = torch.float
+        # else:
+        #     data_type = torch.half
 
         next_state_values = torch.zeros(self.cfg.BATCH_SIZE,
                                         device=self.device,
