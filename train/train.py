@@ -13,6 +13,8 @@ from algorithms.dqn.utils import replay_mem
 from config.default_config import cfg
 from utils import gym_utils
 
+import optuna
+
 # from apex import amp, optimizers
 
 ex = Experiment()
@@ -20,24 +22,25 @@ ex = Experiment()
 
 @ex.main
 def main():
-    # study = optuna.create_study(
-    #     sampler=optuna.samplers.TPESampler(),
-    #     direction='maximize',
-    #     study_name='cartpole_rl',
-    #     storage=f'sqlite:///cartpole_rl_hp_opt_1.db',
-    #     load_if_exists=True
-    # )
-    #
-    # study.optimize(train, n_trials=100)
-    train()
+    study = optuna.create_study(
+        sampler=optuna.samplers.TPESampler(),
+        direction='maximize',
+        study_name='cartpole_rl',
+        storage=f'sqlite:////{cfg.TRAIN.LOG.OUTPUT_DIR}/cartpole_rl_hp_opt_1.db',
+        load_if_exists=True
+    )
+    output_dir = cfg.TRAIN.LOG.OUTPUT_DIR
+    study.optimize(train, n_trials=5)
+    # train()
 
-
+output_dir = ''
 def train(trial=None):
-    if trial:
-        cfg.TRAIN.GAMMA = trial.suggest_uniform('GAMMA', 0.95, 0.99)
-        cfg.TRAIN.EPS_DECAY = trial.suggest_uniform('EPS_DECAY', 100, 600)
-        lr = trial.suggest_loguniform('lr', 1e-4, 1e-2)
 
+    if trial:
+        cfg.TRAIN.LOG.OUTPUT_DIR = output_dir + '/trial_' + trial._trial_id
+        cfg.TRAIN.GAMMA = trial.suggest_categorical('GAMMA', [0.95, 0.97, 0.99])
+        cfg.TRAIN.EPS_DECAY = trial.suggest_categorical('EPS_DECAY', [100, 200,300,400])
+        lr = trial.suggest_loguniform('lr', 0.0001, 0.001)
 
     env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
     env.reset()
@@ -58,7 +61,7 @@ def train(trial=None):
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
     # optimizer = optim.RMSprop(policy_net.parameters())
-    optimizer = optim.Adam(policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE)
+    optimizer = optim.Adam(policy_net.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5,
                                                        last_epoch=-1)
     # if torch.cuda.is_available():
