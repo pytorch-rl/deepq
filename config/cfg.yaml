@@ -1,0 +1,19 @@
+TRAIN:
+  BATCH_SIZE: 32
+  GAMMA: 0.95
+  TARGET_UPDATE: 10
+  EPS_START: 0.9
+  EPS_END:  0.05
+  EPS_DECAY: 200
+  REPLAY_MEMORY_SIZE: 100000
+  LEARNING_RATE: 0.0005
+
+  NUM_EPISODES: 500
+  OPT_LEVEL: O0
+
+  CKPT_SAVE_DIR: /Users/yotam/Documents/mspacman_results/debug/checkpoints
+
+  LOG:
+    OUTPUT_DIR: /Users/yotam/Documents/mspacman_results/debug
+    EXP_NAME: Debug
+

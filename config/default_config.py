@@ -17,6 +17,7 @@ def get_default_params():
         'EPS_END':  0.05,
         'EPS_DECAY': 200,
         'REPLAY_MEMORY_SIZE': 10000,
+        'LEARNING_RATE': 5e-4,
 
         'NUM_EPISODES': 50000,
         'OPT_LEVEL': 'O1',

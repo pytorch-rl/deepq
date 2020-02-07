@@ -1,19 +1,20 @@
-import os
 import math
+import os
 import random
+import signal
 import time
 from itertools import count
-import signal
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-# from apex import amp
 
 import utils.logx
 from algorithms.dqn.utils import replay_mem
-from utils import gym_utils
 from utils import visualization
+
+
+# from apex import amp
 
 
 class DQNTrainer(object):
@@ -105,6 +106,7 @@ class DQNTrainer(object):
             # Scalar logging.
             self.logger.log_tabular('Epoch', i_episode)
             self.logger.log_tabular('TotalGradientSteps', self.steps_done)
+            self.logger.log_tabular('EpsilonThreshold', self.eps_threshold)
             self.logger.log_tabular('EpisodeDuration',
                                     self.episode_durations[-1])
             self.logger.log_tabular('MeanEpisodeDuration',
@@ -140,12 +142,12 @@ class DQNTrainer(object):
 
         for t in count():
             # Select and perform an action
-            eps_threshold = self.cfg.EPS_END + (
+            self.eps_threshold = self.cfg.EPS_END + (
                         self.cfg.EPS_START - self.cfg.EPS_END) \
-                            * math.exp(
+                                 * math.exp(
                 -1. * self.steps_done / self.cfg.EPS_DECAY)
 
-            action = self.agent.select_action(eps_threshold)
+            action = self.agent.select_action(self.eps_threshold)
             self.steps_done += 1
             _, reward, done, _ = self.env.step(action.item())
 

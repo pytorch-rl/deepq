@@ -1,50 +1,43 @@
 import argparse
 
 import gym
-import matplotlib.pyplot as plt
-from itertools import count
-
 import torch
 import torch.optim as optim
-import torch.nn.functional as F
-
-import pickle
-
-from config.default_config import cfg
-# from apex import amp, optimizers
-
-import utils.yaml_utils
-from algorithms.dqn.utils import replay_mem, dqn_algo
-from algorithms.dqn.model import dqn_vanilla
-from utils import gym_utils
-
-import algorithms.dqn.trainer
-
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 
-ex = Experiment()
+import algorithms.dqn.trainer
+import utils.yaml_utils
+from algorithms.dqn.model import dqn_vanilla
+from algorithms.dqn.utils import replay_mem
+from config.default_config import cfg
+from utils import gym_utils
 
-import optuna
+# from apex import amp, optimizers
+
+ex = Experiment()
 
 
 @ex.main
 def main():
-    study = optuna.create_study(
-        sampler=optuna.samplers.TPESampler(),
-        direction='maximize',
-        study_name='cartpole_rl',
-        storage=f'sqlite:///cartpole_rl_hp_opt_1.db',
-        load_if_exists=True
-    )
+    # study = optuna.create_study(
+    #     sampler=optuna.samplers.TPESampler(),
+    #     direction='maximize',
+    #     study_name='cartpole_rl',
+    #     storage=f'sqlite:///cartpole_rl_hp_opt_1.db',
+    #     load_if_exists=True
+    # )
+    #
+    # study.optimize(train, n_trials=100)
+    train()
 
-    study.optimize(train, n_trials=100)
 
+def train(trial=None):
+    if trial:
+        cfg.TRAIN.GAMMA = trial.suggest_uniform('GAMMA', 0.95, 0.99)
+        cfg.TRAIN.EPS_DECAY = trial.suggest_uniform('EPS_DECAY', 100, 600)
+        lr = trial.suggest_loguniform('lr', 1e-4, 1e-2)
 
-def train(trial):
-    cfg.TRAIN.GAMMA = trial.suggest_uniform('GAMMA', 0.95, 0.99)
-    cfg.TRAIN.EPS_DECAY = trial.suggest_uniform('EPS_DECAY', 100, 600)
-    lr = trial.suggest_loguniform('lr', 1e-4, 1e-2)
 
     env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
     env.reset()
@@ -65,7 +58,7 @@ def train(trial):
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
     # optimizer = optim.RMSprop(policy_net.parameters())
-    optimizer = optim.Adam(policy_net.parameters(), lr=lr)
+    optimizer = optim.Adam(policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5,
                                                        last_epoch=-1)
     # if torch.cuda.is_available():
