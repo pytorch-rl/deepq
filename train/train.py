@@ -11,6 +11,7 @@ from algorithms.dqn.utils import replay_mem
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 from utils import gym_utils
+import pickle
 
 from config.default_config import cfg
 
@@ -34,8 +35,8 @@ def main():
 
     cfg.TRAIN.LOG.OUTPUT_BASE_DIR = cfg.TRAIN.LOG.OUTPUT_DIR
     cfg.TRAIN.CKPT_SAVE_BASE_DIR = cfg.TRAIN.CKPT_SAVE_DIR
-    study.optimize(train, n_trials=100)
-    # train()
+    # study.optimize(train, n_trials=100)
+    train()
 
 
 def train(trial=None):
@@ -65,8 +66,8 @@ def train(trial=None):
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
     # optimizer = optim.RMSprop(policy_net.parameters())
-    optimizer = optim.Adam(policy_net.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5,
+    optimizer = optim.Adam(policy_net.parameters(), lr=1e-3)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.01,
                                                        last_epoch=-1)
     # if torch.cuda.is_available():
     #     [target_net, policy_net], optimizer = amp.initialize(

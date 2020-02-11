@@ -53,6 +53,8 @@ class DQNTrainer(object):
         # Set a signal handler.
         self._graceful_exit()
 
+        step_flag = False
+
         q_validation_episodes = []
         score_validation_episodes = []
         for i_episode in range(self.init_episode, self.num_episodes):
@@ -98,8 +100,10 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-            # if (i_episode + 1) % 100:
-            #     self.scheduler.step()
+            # TODO(maors): 100 should be a param.
+            if (not step_flag) and np.mean(self.episode_durations[-10:]) > 100.0:
+                step_flag = True
+                self.scheduler.step()
 
             # Scalar logging.
             self.logger.log_tabular('Epoch', i_episode)
@@ -109,6 +113,7 @@ class DQNTrainer(object):
                                     self.episode_durations[-1])
             self.logger.log_tabular('MeanEpisodeDuration',
                                     np.mean(self.episode_durations[-100:]))
+
             if len(self.q_validation_scores) != 0:
                 self.logger.log_tabular('QValidation',
                                         self.q_validation_scores[-1])
@@ -119,6 +124,8 @@ class DQNTrainer(object):
                                         self.score_validation_scores[-1])
             else:
                 self.logger.log_tabular('ScoreValidation', -1)
+
+            self.logger.log_tabular('LR', self.optimizer.state_dict()['param_groups'][0]['lr'])
             self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
             self.logger.log_tabular('Time', time.time() - start_time)
 
@@ -247,6 +254,7 @@ class DQNTrainer(object):
         return loss
 
     def validate(self, val_type='q_value'):
+        # TODO(amitka): Adjust to new state.
         with torch.no_grad():
             validation_values = []
             if val_type == 'q_value':
