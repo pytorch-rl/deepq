@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import gym
 import torch
@@ -22,6 +23,9 @@ ex = Experiment()
 
 @ex.main
 def main():
+    if not os.path.isdir(cfg.TRAIN.LOG.OUTPUT_DIR):
+        os.makedirs(cfg.TRAIN.LOG.OUTPUT_DIR)
+
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(),
         direction='maximize',
@@ -29,15 +33,17 @@ def main():
         storage=f'sqlite:////{cfg.TRAIN.LOG.OUTPUT_DIR}/cartpole_rl_hp_opt_1.db',
         load_if_exists=True
     )
-    output_dir = cfg.TRAIN.LOG.OUTPUT_DIR
-    study.optimize(train, n_trials=5)
+
+    cfg.TRAIN.LOG.OUTPUT_BASE_DIR = cfg.TRAIN.LOG.OUTPUT_DIR
+    cfg.TRAIN.CKPT_SAVE_BASE_DIR = cfg.TRAIN.CKPT_SAVE_DIR
+    study.optimize(train, n_trials=100)
     # train()
 
-output_dir = ''
 def train(trial=None):
 
     if trial:
-        cfg.TRAIN.LOG.OUTPUT_DIR = output_dir + '/trial_' + trial._trial_id
+        cfg.TRAIN.LOG.OUTPUT_DIR = cfg.TRAIN.LOG.OUTPUT_BASE_DIR + '/trial_' + str(trial._trial_id)
+        cfg.TRAIN.CKPT_SAVE_DIR= cfg.TRAIN.CKPT_SAVE_BASE_DIR + '/trial_' + str(trial._trial_id)
         cfg.TRAIN.GAMMA = trial.suggest_categorical('GAMMA', [0.95, 0.97, 0.99])
         cfg.TRAIN.EPS_DECAY = trial.suggest_categorical('EPS_DECAY', [100, 200,300,400])
         lr = trial.suggest_loguniform('lr', 0.0001, 0.001)
@@ -117,4 +123,5 @@ if __name__ == '__main__':
     if args.file_storage_path != '':
         ex.observers.append(FileStorageObserver(args.file_storage_path))
 
+    output_dir = ''
     ex.run()

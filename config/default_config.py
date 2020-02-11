@@ -25,9 +25,11 @@ def get_default_params():
         'CKPT_SAVE_FREQ': 10,
         'CKPT_PATH': '',
         'CKPT_SAVE_DIR': '',
+        'CKPT_SAVE_BASE_DIR': '',
 
         'LOG': {
             'OUTPUT_DIR': '',
+            'OUTPUT_BASE_DIR': '',
             'OUTPUT_FNAME': 'progress.txt',
             'EXP_NAME': '',
             'SAVE_FREQ': 1,
