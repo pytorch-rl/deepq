@@ -65,7 +65,7 @@ class DQNTrainer(object):
             self.env.reset()
             self.agent.state = self.env.get_state().to(self.device)
 
-            self._train_episode(self.agent.state)
+            self._train_episode()
 
             # Update the target network, copying all weights and biases in DQN
             if i_episode % self.cfg.TARGET_UPDATE == 0:
@@ -133,11 +133,8 @@ class DQNTrainer(object):
             self.logger.dump_tabular()
 
 
-    def _train_episode(self, current_screen):
+    def _train_episode(self):
         """
-
-        Args:
-            current_screen:
 
         Returns:
 
@@ -265,12 +262,11 @@ class DQNTrainer(object):
                     validation_values.append(current_state_q)
                 validation_value = np.mean(validation_values)
             elif val_type == 'score':
-                for state, screen in self.env_initial_states_screens:
+                for state in self.env_initial_states_screens:
                     # Initialize the state.
                     self.env.reset()
                     self.agent.state = state
-                    _, episode_duration = self.agent._play_episode(
-                            current_screen=screen)
+                    _, episode_duration = self.agent._play_episode()
                     validation_values.append(episode_duration)
                 validation_value = np.mean(validation_values)
         return validation_value
@@ -337,17 +333,15 @@ class DQNAgent(object):
         self.env = env
         self.epsilon = epsilon
 
-    def _play_episode(self, current_screen):
+    def _play_episode(self):
         """
-
-        Args:
-            current_screen:
 
         Returns:
 
         """
         states = []
         for t in count():
+            states.append(self.state)
 
             # Select and perform an action
             eps_threshold = self.epsilon
@@ -355,13 +349,8 @@ class DQNAgent(object):
             # self.steps_done += 1
             _, _, done, _ = self.env.step(action.item())
 
-            states.append(current_screen)
-
-            next_state = None
             if not done:
-                next_state = self.env.get_state().to(self.device)
-
-            self.state = next_state
+                self.state = self.env.get_state().to(self.device)
 
             if done:
                 episode_duration = t + 1

@@ -75,12 +75,22 @@ def train(trial=None):
     #         opt_level=cfg.TRAIN.OPT_LEVEL)
 
     memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
-    env_random_states = pickle.load(
-        open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
-    env_initial_states_screens = pickle.load(
-        open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
-    env_initial_states_screens = env_initial_states_screens[
-                                 :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
+
+
+    if cfg.TRAIN.VALIDATION.Q_VALIDATION_FREQUENCY != -1:
+        env_random_states = pickle.load(
+            open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
+    else:
+        env_random_states = []
+
+    if cfg.TRAIN.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1:
+        env_initial_states_screens = pickle.load(
+            open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
+        env_initial_states_screens = env_initial_states_screens[
+                                     :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
+    else:
+        env_initial_states_screens = []
+
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env,
                                             cfg.TRAIN.EPS_END)
     trainer = algorithms.dqn.trainer.DQNTrainer(
