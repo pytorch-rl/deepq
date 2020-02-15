@@ -19,7 +19,7 @@ from utils import visualization
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
-                 num_episodes, device, scheduler, env_random_states, env_initial_states_screens):
+                 num_episodes, device, scheduler, env_random_states, env_initial_states):
         self.cfg = train_cfg
         self.agent = agent
         self.env = env
@@ -36,7 +36,7 @@ class DQNTrainer(object):
         self.q_validation_scores = []
         self.score_validation_scores = []
         self.env_random_states = env_random_states
-        self.env_initial_states_screens = env_initial_states_screens
+        self.env_initial_states_screens = env_initial_states
         self.scheduler = scheduler
         self.metric = -1
 

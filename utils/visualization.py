@@ -26,7 +26,7 @@ def plot_validation_score(validation_score_list, episodes_list, fig_num=3, y_lab
     plt.figure(fig_num)
     plt.clf()
     validation_score_list_t = torch.tensor(validation_score_list, dtype=torch.float)
-    plt.title('Training...')
+    plt.title('Validation')
     plt.xlabel('Episode')
     plt.ylabel(y_label)
     plt.plot(episodes_list ,validation_score_list_t.numpy())
