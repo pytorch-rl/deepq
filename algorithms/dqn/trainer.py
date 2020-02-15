@@ -101,9 +101,9 @@ class DQNTrainer(object):
                 self._save_ckpt(i_episode)
 
             # TODO(maors): 100 should be a param.
-            if (not step_flag) and np.mean(self.episode_durations[-10:]) > 100.0:
-                step_flag = True
-                self.scheduler.step()
+            # if (not step_flag) and np.mean(self.episode_durations[-10:]) > 100.0:
+            #     step_flag = True
+            #     self.scheduler.step()
 
             # Scalar logging.
             self.logger.log_tabular('Epoch', i_episode)
@@ -164,7 +164,13 @@ class DQNTrainer(object):
                 next_state = self.env.get_state().to(self.device)
 
             # Store the transition in memory
-            self.memory.push(self.agent.state, action, next_state, reward)
+            # self.memory.push(self.agent.state, action, next_state, reward)
+
+            mean_dur = 0.
+            if len(self.episode_durations) >= 10:
+                mean_dur = np.mean(self.episode_durations[-10:])
+
+            self.memory.push(self.agent.state, action, next_state, reward, mean_dur)
 
             # Move to the next state
             self.agent.state = next_state
@@ -188,14 +194,15 @@ class DQNTrainer(object):
 
     def step(self):
 
-        if len(self.memory) < self.cfg.BATCH_SIZE:
+        if len(self.memory) < 10 * self.cfg.BATCH_SIZE:
             return
 
         transitions = self.memory.sample(self.cfg.BATCH_SIZE)
         # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
         # detailed explanation). This converts batch-array of Transitions
         # to Transition of batch-arrays.
-        batch = replay_mem.Transition(*zip(*transitions))
+        # batch = replay_mem.Transition(*zip(*transitions))
+        batch = replay_mem.SortedTransition(*zip(*transitions))
 
         # Compute a mask of non-final states and concatenate the batch elements
         # (a final state would've been the one after which simulation ended)

@@ -74,7 +74,9 @@ def train(trial=None):
     #         [target_net, policy_net], optimizer,
     #         opt_level=cfg.TRAIN.OPT_LEVEL)
 
-    memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
+    # memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
+    memory = replay_mem.SortedReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
+
     env_random_states = pickle.load(
         open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
     env_initial_states_screens = pickle.load(
