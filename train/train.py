@@ -66,7 +66,7 @@ def train(trial=None):
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
     # optimizer = optim.RMSprop(policy_net.parameters())
-    optimizer = optim.Adam(policy_net.parameters(), lr=1e-3)
+    optimizer = optim.Adam(policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.01,
                                                        last_epoch=-1)
     # if torch.cuda.is_available():

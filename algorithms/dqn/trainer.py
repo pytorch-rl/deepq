@@ -251,7 +251,6 @@ class DQNTrainer(object):
         return loss
 
     def validate(self, val_type='q_value'):
-        # TODO(amitka): Adjust to new state.
         with torch.no_grad():
             validation_values = []
             if val_type == 'q_value':
