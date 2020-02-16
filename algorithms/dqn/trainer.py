@@ -344,7 +344,7 @@ class DQNAgent(object):
 
             # Select and perform an action
             eps_threshold = self.epsilon
-            action = self.select_action(eps_threshold)
+            action = self.select_action(eps_threshold=0)
             # self.steps_done += 1
             _, _, done, _ = self.env.step(action.item())
 
