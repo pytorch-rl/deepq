@@ -35,17 +35,17 @@ def main():
 
     cfg.TRAIN.LOG.OUTPUT_BASE_DIR = cfg.TRAIN.LOG.OUTPUT_DIR
     cfg.TRAIN.CKPT_SAVE_BASE_DIR = cfg.TRAIN.CKPT_SAVE_DIR
-    # study.optimize(train, n_trials=100)
-    train()
+    study.optimize(train, n_trials=2)
+    # train()
 
 
 def train(trial=None):
     if trial:
         cfg.TRAIN.LOG.OUTPUT_DIR = cfg.TRAIN.LOG.OUTPUT_BASE_DIR + '/trial_' + str(trial._trial_id)
         cfg.TRAIN.CKPT_SAVE_DIR = cfg.TRAIN.CKPT_SAVE_BASE_DIR + '/trial_' + str(trial._trial_id)
-        cfg.TRAIN.GAMMA = trial.suggest_categorical('GAMMA', [0.95, 0.97, 0.99])
-        cfg.TRAIN.EPS_DECAY = trial.suggest_categorical('EPS_DECAY', [100, 200, 300, 400])
-        lr = trial.suggest_loguniform('lr', 0.0001, 0.001)
+        # cfg.TRAIN.GAMMA = trial.suggest_categorical('GAMMA', [0.95, 0.97, 0.99])
+        # cfg.TRAIN.EPS_DECAY = trial.suggest_categorical('EPS_DECAY', [100, 200, 300, 400])
+        lr = trial.suggest_categorical('lr', [0.001])
 
     env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
     env.reset()
@@ -66,7 +66,7 @@ def train(trial=None):
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
     # optimizer = optim.RMSprop(policy_net.parameters())
-    optimizer = optim.Adam(policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE)
+    optimizer = optim.Adam(policy_net.parameters(), lr=lr)#=cfg.TRAIN.LEARNING_RATE)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=cfg.TRAIN.SCHEDULER.GAMMA,
                                                        last_epoch=-1)
     # if torch.cuda.is_available():
