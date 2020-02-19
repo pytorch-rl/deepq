@@ -19,6 +19,12 @@ def get_default_params():
         'REPLAY_MEMORY_SIZE': 10000,
         'LEARNING_RATE': 5e-4,
 
+        'SCHEDULER': {
+            'GAMMA': 0.1,
+            'PERFORMANCE_LEAP': 50,
+            'EPISODES_SUCCESS_SEQUENCE': 5,
+        },
+
         'NUM_EPISODES': 50000,
         'OPT_LEVEL': 'O1',
 

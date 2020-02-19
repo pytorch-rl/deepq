@@ -67,7 +67,7 @@ def train(trial=None):
     target_net.eval()
     # optimizer = optim.RMSprop(policy_net.parameters())
     optimizer = optim.Adam(policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.01,
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=cfg.TRAIN.SCHEDULER.GAMMA,
                                                        last_epoch=-1)
     # if torch.cuda.is_available():
     #     [target_net, policy_net], optimizer = amp.initialize(
@@ -80,23 +80,27 @@ def train(trial=None):
     if cfg.TRAIN.VALIDATION.Q_VALIDATION_FREQUENCY != -1:
         env_random_states = pickle.load(
             open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
+        env_random_states = list(map(lambda x : x.to(device), env_random_states))
     else:
         env_random_states = []
 
     if cfg.TRAIN.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1:
-        env_initial_states_screens = pickle.load(
+        env_initial_states = pickle.load(
             open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
-        env_initial_states_screens = env_initial_states_screens[
+        env_initial_states = env_initial_states[
                                      :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
+        env_initial_states = list(map(lambda x : x.to(device),
+                                              env_initial_states))
+
     else:
-        env_initial_states_screens = []
+        env_initial_states = []
 
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env,
                                             cfg.TRAIN.EPS_END)
     trainer = algorithms.dqn.trainer.DQNTrainer(
             cfg.TRAIN, env, agent, target_net, policy_net, memory, optimizer,
             cfg.TRAIN.NUM_EPISODES, device,
-            scheduler, env_random_states, env_initial_states_screens
+            scheduler, env_random_states, env_initial_states
     )
     trainer.train()
     print('Complete')
