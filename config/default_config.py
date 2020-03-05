@@ -23,6 +23,8 @@ def get_default_params():
             'GAMMA': 0.1,
             'PERFORMANCE_LEAP': 50,
             'EPISODES_SUCCESS_SEQUENCE': 5,
+            'SUCCESS_CRITERIA': "all_above_thresh",
+            'MIN_EPISODES_BETWEEN_STEPS': 10,
         },
 
         'NUM_EPISODES': 50000,

@@ -35,7 +35,7 @@ def main():
 
     cfg.TRAIN.LOG.OUTPUT_BASE_DIR = cfg.TRAIN.LOG.OUTPUT_DIR
     cfg.TRAIN.CKPT_SAVE_BASE_DIR = cfg.TRAIN.CKPT_SAVE_DIR
-    study.optimize(train, n_trials=2)
+    study.optimize(train, n_trials=20)
     # train()
 
 

@@ -40,6 +40,7 @@ class DQNTrainer(object):
         self.scheduler = scheduler
         self.scheduler_steps = 0
         self.metric = -1
+        self.episodes_from_scheduler_step = 0
 
         self._load_ckpt(self.cfg.CKPT_PATH)
 
@@ -55,6 +56,7 @@ class DQNTrainer(object):
         self._graceful_exit()
 
         performance_thresh = 0
+        # step_flag = False
 
         q_validation_episodes = []
         score_validation_episodes = []
@@ -101,15 +103,26 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-            # if all(list(map(lambda x : x > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP,
-            #                 self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]))):
+            if self.cfg.SCHEDULER.SUCCESS_CRITERIA == "all_above_thresh":
+                if all(list(map(lambda x : x > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP,
+                            self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:])))\
+                        and self.episodes_from_scheduler_step >= self.cfg.SCHEDULER.MIN_EPISODES_BETWEEN_STEPS:
 
-            if (np.mean(self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]) \
-                    > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP) and (self.episode_durations[-1] > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP):
+            # if (np.mean(self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]) \
+            #         > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP) and (self.episode_durations[-1] > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP):
+            #
+                    performance_thresh += self.cfg.SCHEDULER.PERFORMANCE_LEAP
+                    self.scheduler.step()
+                    # self.scheduler_steps += 1
+                    self.episodes_from_scheduler_step = 0
+                else:
+                    self.episodes_from_scheduler_step += 1
 
-                performance_thresh += self.cfg.SCHEDULER.PERFORMANCE_LEAP
-                self.scheduler.step()
-                self.scheduler_steps += 1
+
+            # if (not step_flag) and np.mean(self.episode_durations[-10:]) > 200.0:
+            #     step_flag = True
+            #     self.scheduler.step()
+
 
             # elif (np.mean(self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]) \
             #         < performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP) and (self.episode_durations[-1] < performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP):
@@ -160,7 +173,7 @@ class DQNTrainer(object):
             self.eps_threshold = (self.cfg.EPS_END + (
                         self.cfg.EPS_START - self.cfg.EPS_END) \
                                  * math.exp(
-                -1. * self.steps_done / self.cfg.EPS_DECAY)) * (self.cfg.SCHEDULER.GAMMA ** self.scheduler_steps)
+                -1. * self.steps_done / self.cfg.EPS_DECAY)) * (math.sqrt(self.cfg.SCHEDULER.GAMMA) ** self.scheduler_steps)
 
             action = self.agent.select_action(self.eps_threshold)
             self.steps_done += 1
@@ -245,8 +258,6 @@ class DQNTrainer(object):
         # Compute the expected Q values
         expected_state_action_values = (next_state_values * self.cfg.GAMMA)\
                                        + reward_batch
-
-        # expected_state_action_values = next_state_values + reward_batch # TODO(amitka): is that legal?
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values,
