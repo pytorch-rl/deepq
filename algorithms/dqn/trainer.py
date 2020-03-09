@@ -55,7 +55,7 @@ class DQNTrainer(object):
         # Set a signal handler.
         self._graceful_exit()
 
-        performance_thresh = 0
+        performance_thresh = self.cfg.INITIAL_PERFORMANCE_THRSH
         # step_flag = False
 
         q_validation_episodes = []
@@ -103,7 +103,7 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-            if self.cfg.SCHEDULER.SUCCESS_CRITERIA == "all_above_thresh":
+            if self.cfg.SCHEDULER.SUCCESS_CRITERIA == "all_above_thresh": # TODO(amitka) - extract to method
                 if all(list(map(lambda x : x > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP,
                             self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:])))\
                         and self.episodes_from_scheduler_step >= self.cfg.SCHEDULER.MIN_EPISODES_BETWEEN_STEPS:
@@ -173,7 +173,7 @@ class DQNTrainer(object):
             self.eps_threshold = (self.cfg.EPS_END + (
                         self.cfg.EPS_START - self.cfg.EPS_END) \
                                  * math.exp(
-                -1. * self.steps_done / self.cfg.EPS_DECAY)) * (math.sqrt(self.cfg.SCHEDULER.GAMMA) ** self.scheduler_steps)
+                -1. * self.steps_done / self.cfg.EPS_DECAY))
 
             action = self.agent.select_action(self.eps_threshold)
             self.steps_done += 1

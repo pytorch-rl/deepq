@@ -35,8 +35,10 @@ def main():
 
     cfg.TRAIN.LOG.OUTPUT_BASE_DIR = cfg.TRAIN.LOG.OUTPUT_DIR
     cfg.TRAIN.CKPT_SAVE_BASE_DIR = cfg.TRAIN.CKPT_SAVE_DIR
-    study.optimize(train, n_trials=20)
-    # train()
+    if cfg.HP_OPTIM.NUM_TRIALS > 1:
+        study.optimize(train, n_trials=cfg.HP_OPTIM.NUM_TRIALS)
+    else:
+        train()
 
 
 def train(trial=None):
