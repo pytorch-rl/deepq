@@ -46,6 +46,7 @@ class EnvWrapper:
         self._frames = []
         self.env = env
         self.action_space = self.env.action_space
+        self.seed = self.env.seed
 
     def reset(self):
 

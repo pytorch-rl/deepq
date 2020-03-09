@@ -4,6 +4,10 @@ from yacs.config import CfgNode as CN
 def get_default_params():
     default_params = dict()
 
+    default_params['HP_OPTIM'] = {
+		'NUM_TRIALS': 1,
+	}
+	
     default_params['PATHS'] = {
         'Q_VALIDATION_SET_PATH': '',
         'SCORE_VALIDATION_SET_PATH': '',
@@ -18,6 +22,15 @@ def get_default_params():
         'EPS_DECAY': 200,
         'REPLAY_MEMORY_SIZE': 10000,
         'LEARNING_RATE': 5e-4,
+		'INITIAL_PERFORMANCE_THRSH': 100,
+
+        'SCHEDULER': {
+            'GAMMA': 0.1,
+            'PERFORMANCE_LEAP': 50,
+            'EPISODES_SUCCESS_SEQUENCE': 5,
+            'SUCCESS_CRITERIA': "all_above_thresh",
+            'MIN_EPISODES_BETWEEN_STEPS': 10,
+        },
 
         'NUM_EPISODES': 50000,
         'OPT_LEVEL': 'O1',

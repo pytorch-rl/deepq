@@ -19,7 +19,7 @@ from utils import visualization
 
 class DQNTrainer(object):
     def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
-                 num_episodes, device, scheduler, env_random_states, env_initial_states_screens):
+                 num_episodes, device, scheduler, env_random_states, env_initial_states):
         self.cfg = train_cfg
         self.agent = agent
         self.env = env
@@ -36,9 +36,11 @@ class DQNTrainer(object):
         self.q_validation_scores = []
         self.score_validation_scores = []
         self.env_random_states = env_random_states
-        self.env_initial_states_screens = env_initial_states_screens
+        self.env_initial_states_screens = env_initial_states
         self.scheduler = scheduler
+        self.scheduler_steps = 0
         self.metric = -1
+        self.episodes_from_scheduler_step = 0
 
         self._load_ckpt(self.cfg.CKPT_PATH)
 
@@ -53,6 +55,9 @@ class DQNTrainer(object):
         # Set a signal handler.
         self._graceful_exit()
 
+        performance_thresh = self.cfg.INITIAL_PERFORMANCE_THRSH
+        # step_flag = False
+
         q_validation_episodes = []
         score_validation_episodes = []
         for i_episode in range(self.init_episode, self.num_episodes):
@@ -63,7 +68,7 @@ class DQNTrainer(object):
             self.env.reset()
             self.agent.state = self.env.get_state().to(self.device)
 
-            self._train_episode(self.agent.state)
+            self._train_episode()
 
             # Update the target network, copying all weights and biases in DQN
             if i_episode % self.cfg.TARGET_UPDATE == 0:
@@ -98,8 +103,33 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-            # if (i_episode + 1) % 100:
+            if self.cfg.SCHEDULER.SUCCESS_CRITERIA == "all_above_thresh": # TODO(amitka) - extract to method
+                if all(list(map(lambda x : x > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP,
+                            self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:])))\
+                        and self.episodes_from_scheduler_step >= self.cfg.SCHEDULER.MIN_EPISODES_BETWEEN_STEPS:
+
+            # if (np.mean(self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]) \
+            #         > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP) and (self.episode_durations[-1] > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP):
+            #
+                    performance_thresh += self.cfg.SCHEDULER.PERFORMANCE_LEAP
+                    self.scheduler.step()
+                    # self.scheduler_steps += 1
+                    self.episodes_from_scheduler_step = 0
+                else:
+                    self.episodes_from_scheduler_step += 1
+
+
+            # if (not step_flag) and np.mean(self.episode_durations[-10:]) > 200.0:
+            #     step_flag = True
             #     self.scheduler.step()
+
+
+            # elif (np.mean(self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]) \
+            #         < performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP) and (self.episode_durations[-1] < performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP):
+            #
+            #     performance_thresh = max(performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP, 0)
+            #     self.scheduler.
+            #     self.scheduler_steps = max(self.scheduler_steps - 1, 0)
 
             # Scalar logging.
             self.logger.log_tabular('Epoch', i_episode)
@@ -109,6 +139,7 @@ class DQNTrainer(object):
                                     self.episode_durations[-1])
             self.logger.log_tabular('MeanEpisodeDuration',
                                     np.mean(self.episode_durations[-100:]))
+
             if len(self.q_validation_scores) != 0:
                 self.logger.log_tabular('QValidation',
                                         self.q_validation_scores[-1])
@@ -119,6 +150,8 @@ class DQNTrainer(object):
                                         self.score_validation_scores[-1])
             else:
                 self.logger.log_tabular('ScoreValidation', -1)
+
+            self.logger.log_tabular('LR', self.optimizer.state_dict()['param_groups'][0]['lr'])
             self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
             self.logger.log_tabular('Time', time.time() - start_time)
 
@@ -126,11 +159,8 @@ class DQNTrainer(object):
             self.logger.dump_tabular()
 
 
-    def _train_episode(self, current_screen):
+    def _train_episode(self):
         """
-
-        Args:
-            current_screen:
 
         Returns:
 
@@ -140,10 +170,10 @@ class DQNTrainer(object):
 
         for t in count():
             # Select and perform an action
-            self.eps_threshold = self.cfg.EPS_END + (
+            self.eps_threshold = (self.cfg.EPS_END + (
                         self.cfg.EPS_START - self.cfg.EPS_END) \
                                  * math.exp(
-                -1. * self.steps_done / self.cfg.EPS_DECAY)
+                -1. * self.steps_done / self.cfg.EPS_DECAY))
 
             action = self.agent.select_action(self.eps_threshold)
             self.steps_done += 1
@@ -226,8 +256,8 @@ class DQNTrainer(object):
         next_state_values[non_final_mask] = \
             self.target_net(non_final_next_states).max(1)[0].detach()
         # Compute the expected Q values
-        expected_state_action_values = (
-                                                   next_state_values * self.cfg.GAMMA) + reward_batch
+        expected_state_action_values = (next_state_values * self.cfg.GAMMA)\
+                                       + reward_batch
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values,
@@ -257,12 +287,11 @@ class DQNTrainer(object):
                     validation_values.append(current_state_q)
                 validation_value = np.mean(validation_values)
             elif val_type == 'score':
-                for state, screen in self.env_initial_states_screens:
+                for state in self.env_initial_states_screens:
                     # Initialize the state.
                     self.env.reset()
                     self.agent.state = state
-                    _, episode_duration = self.agent._play_episode(
-                            current_screen=screen)
+                    _, episode_duration = self.agent._play_episode()
                     validation_values.append(episode_duration)
                 validation_value = np.mean(validation_values)
         return validation_value
@@ -329,31 +358,23 @@ class DQNAgent(object):
         self.env = env
         self.epsilon = epsilon
 
-    def _play_episode(self, current_screen):
+    def _play_episode(self):
         """
-
-        Args:
-            current_screen:
 
         Returns:
 
         """
         states = []
         for t in count():
+            states.append(self.state)
 
             # Select and perform an action
-            eps_threshold = self.epsilon
-            action = self.select_action(eps_threshold)
+            action = self.select_action(eps_threshold=0)
             # self.steps_done += 1
             _, _, done, _ = self.env.step(action.item())
 
-            states.append(current_screen)
-
-            next_state = None
             if not done:
-                next_state = self.env.get_state().to(self.device)
-
-            self.state = next_state
+                self.state = self.env.get_state().to(self.device)
 
             if done:
                 episode_duration = t + 1
