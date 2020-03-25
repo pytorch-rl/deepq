@@ -70,7 +70,11 @@ class EnvWrapper:
     def get_state(self):
         return torch.stack(self._frames).squeeze(1).permute(1,0,2,3)
 
+    def close(self):
+        self.env.close()
 
+    def render(self, mode):
+        return self.env.render(mode)
 #
 # if __name__ == '__main__':
 #
