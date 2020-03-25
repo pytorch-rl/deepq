@@ -1,4 +1,6 @@
 import argparse
+import os
+import sys
 
 import gym
 import matplotlib.pyplot as plt
@@ -10,20 +12,23 @@ import algorithms.dqn.trainer
 from algorithms.dqn.model import dqn_vanilla
 from utils import gym_utils
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Inference config.')
 
-    parser.add_argument('--cfg_path', type=str, required=False, default='',
-                        help='Path to YAML config file.')
-    parser.add_argument('--results_dir', type=str, required=False,
-                        default='./results',
-                        help='FileStorageObserver path.')
+    parser.add_argument('--ckpt_path', type=str, required=False, default='./assets/checkpoint.pt',
+                        help='Path to checkpoint file to run')
+
+    parser.add_argument('--save_gif', type=lambda x: (str(x).lower() not in ['false', '0', 'no']),
+                        required=False, default=True, help='True to save gif in /results')
 
     return parser.parse_args()
 
 
-def run_pretrained():
+def run_pretrained(ckpt_path, save_gif):
+
     env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
     env.reset()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -41,9 +46,8 @@ def run_pretrained():
     policy_net.to(device).eval()
 
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env)
-    ckpt_path = './assets/checkpoint.pt'
     runner = CartpoleRunner(agent, env, policy_net, device, ckpt_path)
-    runner.run()
+    runner.run(save_gif)
     env.close()
     print('\n Session ended')
     return None
@@ -61,7 +65,7 @@ class CartpoleRunner(object):
 
         self._load_ckpt()
 
-    def run(self):
+    def run(self, save_gif):
 
         frames = []
         self.agent.state = self.env.get_state().to(self.device)
@@ -80,7 +84,8 @@ class CartpoleRunner(object):
                 self.agent.state = next_state
 
             if done:
-                # save_frames_as_gif(frames)
+                if save_gif:
+                    save_frames_as_gif(frames)
                 return None
             # Move to the next state
 
@@ -91,7 +96,7 @@ class CartpoleRunner(object):
         self.policy_net.load_state_dict(checkpoint['model'])
 
 
-def save_frames_as_gif(frames, path='./', filename='results/gym_animation.gif'):
+def save_frames_as_gif(frames, path='./', filename='results/cartpole_results.gif'):
     # Mess with this to change frame size
     plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
 
@@ -102,13 +107,16 @@ def save_frames_as_gif(frames, path='./', filename='results/gym_animation.gif'):
         patch.set_data(frames[i])
 
     anim = animation.FuncAnimation(plt.gcf(), animate, frames=len(frames), interval=50)
-    anim.save(path + filename, writer='imagemagick', fps=60)
+    try:
+        anim.save(path + filename, writer='imagemagick', fps=60)
+        print(f'Saved .gif file to {path + filename}')
+    except:
+        print('.gif save was unsuccessful, consider installing imagemagik '
+              '(with $sudo apt install -y imagemagik)')
+
 
 
 if __name__ == '__main__':
     args = parse_args()
 
-    # if args.cfg_path != '':
-    #     utils.yaml_utils.load_from_yaml(args.cfg_path, cfg)
-
-    run_pretrained()
+    run_pretrained(args.ckpt_path, args.save_gif)
