@@ -41,8 +41,7 @@ def run_pretrained():
     policy_net.to(device).eval()
 
     agent = algorithms.dqn.trainer.DQNAgent(policy_net, n_actions, device, env)
-    ckpt_path = '/raid/algo/SOCISP_SLOW/ADAS/Courses/mspacman/results/training' \
-                '/sceduler_development/try1/checkpoints/trial_1/checkpoint_253.pt'
+    ckpt_path = './assets/checkpoint.pt'
     runner = CartpoleRunner(agent, env, policy_net, device, ckpt_path)
     runner.run()
     env.close()
@@ -81,7 +80,7 @@ class CartpoleRunner(object):
                 self.agent.state = next_state
 
             if done:
-                save_frames_as_gif(frames)
+                # save_frames_as_gif(frames)
                 return None
             # Move to the next state
 
@@ -92,7 +91,7 @@ class CartpoleRunner(object):
         self.policy_net.load_state_dict(checkpoint['model'])
 
 
-def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
+def save_frames_as_gif(frames, path='./', filename='results/gym_animation.gif'):
     # Mess with this to change frame size
     plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
 
