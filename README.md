@@ -10,37 +10,48 @@
 ## Getting Started
 ### Installation
 
-- Clone this repo:
+- Clone this repository:
 
 ```bash
 git clone https://github.com/pytorch-rl/mspacman.git
 ```
 
-- Add repo path to your PYTHONPATH:
+- Add repository path to your PYTHONPATH:
 
 ```bash
 cd deepq
 export PYTHONPATH=$PWD:PYTHONPATH
 ```
 
-- Type the command `pip install -r requirements.txt`.
+- Install requirements:
+
+```bash
+pip install -r requirements.txt`
+```
 
 ### Training
 
-- We assume the pwd is ``deepq``. We will use the ``resutls`` folder in 
-the repository for the examples.
+- We assume that the pwd is ``deepq``. We will use a ``results`` directory in 
+the repository for the follweing examples.
 
-- The training code also performs online validation. So first, we need to create
+- The training code performs online validation. So first, we need to create
 a validation set using:
 
 ```bash
 python validation/validation_set_generator.py
 ```
 
+Note that you can disabel validation using:
+
+```python
+ Q_VALIDATION_FREQUENCY: -1
+ SCORE_VALIDATION_FREQUENCY: -1
+```
+
 - Now you are ready to train your agent:
 
 ```bash
-python train/train.py --cfg_path="../config/best_train_cfg.yaml"
+python train/train.py --cfg_path="./config/best_train_cfg.yaml"
 ```
 
 #### Hyperparameters
