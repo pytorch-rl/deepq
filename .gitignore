@@ -4,4 +4,5 @@
 *.iml
 *.swp
 *.png
+*.pickle
 /results

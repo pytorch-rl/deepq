@@ -3,7 +3,7 @@ from yacs.config import CfgNode as CN
 
 
 def dict_from_yaml(cfg_path):
-    with open(cfg_path) as f:
+    with open(cfg_path, 'r') as f:
         cfg_dict = yaml.load(f, Loader=yaml.FullLoader)
     return cfg_dict
 

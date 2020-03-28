@@ -16,11 +16,11 @@ from utils import gym_utils
 
 from config.default_config import cfg
 
-
+# TODO(amitka): ADD cmd line.
 VALIDATION_SET_SIZE = 1000
 EPISODES_TO_PLAY = 100
 SEED = 7
-PATH_TO_SAVE = '/raid/algo/SOCISP_SLOW/ADAS/Courses/mspacman/data/'
+PATH_TO_SAVE = '../results'
 
 GENERATE_INIT_STATES = True
 GENERATE_RANDOM_STATES = True

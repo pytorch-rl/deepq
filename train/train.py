@@ -1,7 +1,6 @@
 import algorithms.dqn.trainer
 import argparse
 import gym
-import optuna
 import os
 import torch
 import torch.optim as optim
@@ -15,8 +14,6 @@ import pickle
 
 from config.default_config import cfg
 
-# from apex import amp, optimizers
-
 ex = Experiment()
 
 
@@ -24,31 +21,10 @@ ex = Experiment()
 def main():
     if not os.path.isdir(cfg.TRAIN.LOG.OUTPUT_DIR):
         os.makedirs(cfg.TRAIN.LOG.OUTPUT_DIR)
-
-    study = optuna.create_study(
-            sampler=optuna.samplers.TPESampler(),
-            direction='maximize',
-            study_name='cartpole_rl',
-            storage=f'sqlite:////{cfg.TRAIN.LOG.OUTPUT_DIR}/cartpole_rl_hp_opt_1.db',
-            load_if_exists=True
-    )
-
-    cfg.TRAIN.LOG.OUTPUT_BASE_DIR = cfg.TRAIN.LOG.OUTPUT_DIR
-    cfg.TRAIN.CKPT_SAVE_BASE_DIR = cfg.TRAIN.CKPT_SAVE_DIR
-    if cfg.HP_OPTIM.NUM_TRIALS > 1:
-        study.optimize(train, n_trials=cfg.HP_OPTIM.NUM_TRIALS)
-    else:
-        train()
+    train()
 
 
-def train(trial=None):
-    if trial:
-        cfg.TRAIN.LOG.OUTPUT_DIR = cfg.TRAIN.LOG.OUTPUT_BASE_DIR + '/trial_' + str(trial._trial_id)
-        cfg.TRAIN.CKPT_SAVE_DIR = cfg.TRAIN.CKPT_SAVE_BASE_DIR + '/trial_' + str(trial._trial_id)
-        # cfg.TRAIN.GAMMA = trial.suggest_categorical('GAMMA', [0.95, 0.97, 0.99])
-        # cfg.TRAIN.EPS_DECAY = trial.suggest_categorical('EPS_DECAY', [100, 200, 300, 400])
-        lr = trial.suggest_categorical('lr', [0.001])
-
+def train():
     env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
     env.reset()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -68,7 +44,7 @@ def train(trial=None):
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
     # optimizer = optim.RMSprop(policy_net.parameters())
-    optimizer = optim.Adam(policy_net.parameters(), lr=lr)#=cfg.TRAIN.LEARNING_RATE)
+    optimizer = optim.Adam(policy_net.parameters(), lr=cfg.TRAIN.LEARNING_RATE)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=cfg.TRAIN.SCHEDULER.GAMMA,
                                                        last_epoch=-1)
     # if torch.cuda.is_available():
@@ -78,11 +54,10 @@ def train(trial=None):
 
     memory = replay_mem.ReplayMemory(cfg.TRAIN.REPLAY_MEMORY_SIZE)
 
-
     if cfg.TRAIN.VALIDATION.Q_VALIDATION_FREQUENCY != -1:
         env_random_states = pickle.load(
             open(cfg.PATHS.Q_VALIDATION_SET_PATH, 'rb'))
-        env_random_states = list(map(lambda x : x.to(device), env_random_states))
+        env_random_states = list(map(lambda x: x.to(device), env_random_states))
     else:
         env_random_states = []
 
@@ -106,8 +81,6 @@ def train(trial=None):
     )
     trainer.train()
     print('Complete')
-
-    return trainer.metric
 
 
 def parse_args():

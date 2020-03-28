@@ -33,7 +33,7 @@ def get_default_params():
         },
 
         'NUM_EPISODES': 50000,
-        'OPT_LEVEL': 'O1',
+        'OPT_LEVEL': 'O0',
 
         'CKPT_SAVE_FREQ': 10,
         'CKPT_PATH': '',

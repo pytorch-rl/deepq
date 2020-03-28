@@ -12,23 +12,23 @@ import algorithms.dqn.trainer
 from algorithms.dqn.model import dqn_vanilla
 from utils import gym_utils
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Inference config.')
 
-    parser.add_argument('--ckpt_path', type=str, required=False, default='./assets/checkpoint.pt',
+    parser.add_argument('--ckpt_path', type=str, required=False,
+                        default='./assets/checkpoint.pt',
                         help='Path to checkpoint file to run')
 
-    parser.add_argument('--save_gif', type=lambda x: (str(x).lower() not in ['false', '0', 'no']),
-                        required=False, default=True, help='True to save gif in /results')
+    parser.add_argument('--save_gif', type=lambda x: (
+                str(x).lower() not in ['false', '0', 'no']),
+                        required=False, default=True,
+                        help='True to save gif in /results')
 
     return parser.parse_args()
 
 
 def run_pretrained(ckpt_path, save_gif):
-
     env = gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
     env.reset()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -50,7 +50,6 @@ def run_pretrained(ckpt_path, save_gif):
     runner.run(save_gif)
     env.close()
     print('\n Session ended')
-    return None
 
 
 class CartpoleRunner(object):
@@ -96,9 +95,11 @@ class CartpoleRunner(object):
         self.policy_net.load_state_dict(checkpoint['model'])
 
 
-def save_frames_as_gif(frames, path='./', filename='results/cartpole_results.gif'):
+def save_frames_as_gif(frames, path='./',
+                       filename='results/cartpole_results.gif'):
     # Mess with this to change frame size
-    plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
+    plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0),
+               dpi=72)
 
     patch = plt.imshow(frames[0])
     plt.axis('off')
@@ -106,14 +107,14 @@ def save_frames_as_gif(frames, path='./', filename='results/cartpole_results.gif
     def animate(i):
         patch.set_data(frames[i])
 
-    anim = animation.FuncAnimation(plt.gcf(), animate, frames=len(frames), interval=50)
+    anim = animation.FuncAnimation(plt.gcf(), animate, frames=len(frames),
+                                   interval=50)
     try:
         anim.save(path + filename, writer='imagemagick', fps=60)
         print(f'Saved .gif file to {path + filename}')
     except:
         print('.gif save was unsuccessful, consider installing imagemagik '
               '(with $sudo apt install -y imagemagik)')
-
 
 
 if __name__ == '__main__':
