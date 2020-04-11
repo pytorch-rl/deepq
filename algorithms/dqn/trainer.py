@@ -14,7 +14,7 @@ from utils import visualization
 
 
 class DQNTrainer():
-    """DQN trainer for
+    """DQN trainer for a game wrapped with gym environment
 
     Args:
         train_cfg: train configuration using YACS
@@ -51,6 +51,7 @@ class DQNTrainer():
         self.scheduler = scheduler
         self.metric = -1 # todo(maors) - what is the meaning of this?
         self.episodes_from_scheduler_step = 0 # counter for scheduler cooldown
+        self.performance_thresh = self.cfg.SCHEDULER.INITIAL_PERFORMANCE_THRSH # Number of steps per episode required for reducing learning rate
 
         self._load_ckpt(self.cfg.CKPT_PATH)
 
@@ -62,11 +63,10 @@ class DQNTrainer():
         )
 
     def train(self):
+        """training a DQN agent"""
+
         # Set a signal handler.
         self._graceful_exit()
-
-        performance_thresh = self.cfg.SCHEDULER.INITIAL_PERFORMANCE_THRSH
-        # step_flag = False
 
         q_validation_episodes = []
         score_validation_episodes = []
@@ -113,7 +113,7 @@ class DQNTrainer():
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-            self._scheduler_logic(performance_thresh)
+            self._scheduler_logic()
 
             # Scalar logging.
             self.logger.log_tabular('Epoch', i_episode)
@@ -143,12 +143,7 @@ class DQNTrainer():
             self.logger.dump_tabular()
 
     def _train_episode(self):
-        """
-
-        Returns:
-
-        """
-        state_history = []
+        """A single train episode (until agent fails the game)"""
         losses = []
 
         for t in count():
@@ -193,6 +188,11 @@ class DQNTrainer():
                 return
 
     def step(self):
+        """A single optimization step
+
+        Returns:
+            loss: training loss
+        """
 
         if len(self.memory) < self.cfg.BATCH_SIZE:
             return
@@ -227,10 +227,7 @@ class DQNTrainer():
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
 
-        # self.cfg.OPT_LEVEL == "O0":
         data_type = torch.float
-        # else:
-        #     data_type = torch.half
 
         next_state_values = torch.zeros(self.cfg.BATCH_SIZE,
                                         device=self.device,
@@ -249,8 +246,6 @@ class DQNTrainer():
         # Optimize the model
         self.optimizer.zero_grad()
 
-        # with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-        #     scaled_loss.backward()
         loss.backward()
 
         for param in self.agent.policy_net.parameters():
@@ -260,6 +255,21 @@ class DQNTrainer():
         return loss
 
     def validate(self, val_type='q_value'):
+        """Validation over static sets of states.
+
+        Two sets of states were generated for validation -
+        a set of states randomly taken from episodes played and a set of initial
+        states. Q validation is computed by taking the mean of the q value
+        prediction of the policy net over the random states. Score validation
+        is computed by taking the mean of the number of steps per episode
+        over the initial states.
+
+        Args:
+            val_type: can get 'q_value' or 'score'
+
+        Returns:
+            validation_value: value computed on a set of states, its meaning depends on val_type
+        """
         with torch.no_grad():
             validation_values = []
             if val_type == 'q_value':
@@ -269,6 +279,7 @@ class DQNTrainer():
                                     state.to(self.device)).data.cpu().numpy()[0])
                     validation_values.append(current_state_q)
                 validation_value = np.mean(validation_values)
+
             elif val_type == 'score':
                 for state in self.env_initial_states_screens:
                     # Initialize the state.
@@ -277,15 +288,25 @@ class DQNTrainer():
                     _, episode_duration = self.agent._play_episode()
                     validation_values.append(episode_duration)
                 validation_value = np.mean(validation_values)
+
+            elif:
+                raise "Illegal value of 'val_type'"
+
         return validation_value
 
-    def _scheduler_logic(self, performance_thresh):
-        if all(list(map(lambda x: x > performance_thresh,
+    def _scheduler_logic(self):
+        """Logic applied for scheduling the learning rate
+
+        A step of the scheduler is taken when the episodes length has passed a
+        threshold for several times in row, and enough episodes were played since
+        last step.
+        """
+        if all(list(map(lambda x: x > self.performance_thresh,
                         self.episode_durations[
                         -self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]))) \
                 and self.episodes_from_scheduler_step >= self.cfg.SCHEDULER.COOLDOWN:
 
-            performance_thresh += self.cfg.SCHEDULER.PERFORMANCE_LEAP
+            self.performance_thresh += self.cfg.SCHEDULER.PERFORMANCE_LEAP
             self.scheduler.step()
             self.episodes_from_scheduler_step = 0
         else:
@@ -319,7 +340,6 @@ class DQNTrainer():
             checkpoint = torch.load(ckpt_path)
             self.policy_net.load_state_dict(checkpoint['model'])
             self.optimizer.load_state_dict(checkpoint['optimizer'])
-            # amp.load_state_dict(checkpoint['amp'])
             self.steps_done = checkpoint['steps_done']
             self.init_episode = checkpoint['init_episode']
 

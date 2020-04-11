@@ -14,10 +14,13 @@ class DQNAgent():
         self.epsilon = epsilon
 
     def _play_episode(self):
-        """
+        """A single episode (until agent fails the game), without optimizing
+        policy net.
 
         Returns:
-
+            states: list of game states from the episode played (required for
+                    generating validation set)
+            episode_duration: number of steps in the episode played
         """
         states = []
         for t in count():
@@ -35,6 +38,15 @@ class DQNAgent():
                 return states, episode_duration
 
     def select_action(self, eps_threshold):
+        """Selection of action to play
+
+        Args:
+            eps_threshold: exploration (random action) probability
+
+        Returns:
+            action: chosen action to play
+
+        """
         sample = random.random()
 
         if sample > eps_threshold:
@@ -42,8 +54,11 @@ class DQNAgent():
                 # t.max(1) will return largest column value of each row.
                 # second column on max result is index of where max element was
                 # found, so we pick action with the larger expected reward.
-                return self.policy_net(self.state).max(1)[1].view(1, 1)
+                action = self.policy_net(self.state).max(1)[1].view(1, 1)
+
         else:
-            return torch.tensor([[random.randrange(self.n_actions)]],
-                                device=self.device,
-                                dtype=torch.long)
+            action = torch.tensor([[random.randrange(self.n_actions)]],
+                                  device=self.device,
+                                  dtype=torch.long)
+
+        return action
