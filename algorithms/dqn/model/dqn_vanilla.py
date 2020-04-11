@@ -23,6 +23,7 @@ class DQN(nn.Module):
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
+
     def forward(self, x):
         x = F.leaky_relu(self.conv1(x))
         x = F.leaky_relu(self.conv2(x))
