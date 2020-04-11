@@ -4,7 +4,6 @@ from itertools import count
 
 import numpy as np
 import os
-import random
 import signal
 import torch
 import torch.nn.functional as F
@@ -14,33 +13,44 @@ from algorithms.dqn.utils import replay_mem
 from utils import visualization
 
 
-# from apex import amp
+class DQNTrainer():
+    """DQN trainer for
 
+    Args:
+        train_cfg: train configuration using YACS
+        env: game environment (openai gym)
+        agent: DQN agent to train
+        target_net: target to train policy_net accordingly
+        memory: replay memory
+        optimizer: optimizer for agent's policy network
+        num_episodes: total number of episodes to train
+        device: run on cpu / cuda
+        scheduler: learning rate scheduler for agent's policy network
+        env_random_states: states set for Q validation
+        env_initial_states: states set for score validation
+    """
 
-class DQNTrainer(object):
-    def __init__(self, train_cfg, env, agent, target_net, policy_net, memory, optimizer,
+    def __init__(self, train_cfg, env, agent, target_net, memory, optimizer,
                  num_episodes, device, scheduler, env_random_states, env_initial_states):
         self.cfg = train_cfg
         self.agent = agent
         self.env = env
         self.optimizer = optimizer
         self.target_net = target_net
-        self.policy_net = policy_net
         self.memory = memory
-        self.steps_done = 0
-        self.init_episode = 0
+        self.steps_done = 0 # game steps counter from beginning of training
+        self.init_episode = 0 # todo(maors) - what is the meaning of this?
         self.num_episodes = num_episodes
         self.device = device
-        self.episode_durations = []
-        self.episode_mean_losses = []
-        self.q_validation_scores = []
-        self.score_validation_scores = []
+        self.episode_durations = [] # for logging and visualization
+        self.episode_mean_losses = [] # for logging and visualization
+        self.q_validation_scores = [] # for logging and visualization
+        self.score_validation_scores = [] # for logging and visualization
         self.env_random_states = env_random_states
         self.env_initial_states_screens = env_initial_states
         self.scheduler = scheduler
-        self.scheduler_steps = 0
-        self.metric = -1
-        self.episodes_from_scheduler_step = 0
+        self.metric = -1 # todo(maors) - what is the meaning of this?
+        self.episodes_from_scheduler_step = 0 # counter for scheduler cooldown
 
         self._load_ckpt(self.cfg.CKPT_PATH)
 
@@ -55,7 +65,7 @@ class DQNTrainer(object):
         # Set a signal handler.
         self._graceful_exit()
 
-        performance_thresh = self.cfg.INITIAL_PERFORMANCE_THRSH
+        performance_thresh = self.cfg.SCHEDULER.INITIAL_PERFORMANCE_THRSH
         # step_flag = False
 
         q_validation_episodes = []
@@ -103,33 +113,7 @@ class DQNTrainer(object):
             if i_episode % self.cfg.CKPT_SAVE_FREQ == 0:
                 self._save_ckpt(i_episode)
 
-            if self.cfg.SCHEDULER.SUCCESS_CRITERIA == "all_above_thresh": # TODO(amitka) - extract to method
-                if all(list(map(lambda x : x > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP,
-                            self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:])))\
-                        and self.episodes_from_scheduler_step >= self.cfg.SCHEDULER.MIN_EPISODES_BETWEEN_STEPS:
-
-            # if (np.mean(self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]) \
-            #         > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP) and (self.episode_durations[-1] > performance_thresh + self.cfg.SCHEDULER.PERFORMANCE_LEAP):
-            #
-                    performance_thresh += self.cfg.SCHEDULER.PERFORMANCE_LEAP
-                    self.scheduler.step()
-                    # self.scheduler_steps += 1
-                    self.episodes_from_scheduler_step = 0
-                else:
-                    self.episodes_from_scheduler_step += 1
-
-
-            # if (not step_flag) and np.mean(self.episode_durations[-10:]) > 200.0:
-            #     step_flag = True
-            #     self.scheduler.step()
-
-
-            # elif (np.mean(self.episode_durations[-self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]) \
-            #         < performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP) and (self.episode_durations[-1] < performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP):
-            #
-            #     performance_thresh = max(performance_thresh - self.cfg.SCHEDULER.PERFORMANCE_LEAP, 0)
-            #     self.scheduler.
-            #     self.scheduler_steps = max(self.scheduler_steps - 1, 0)
+            self._scheduler_logic(performance_thresh)
 
             # Scalar logging.
             self.logger.log_tabular('Epoch', i_episode)
@@ -157,7 +141,6 @@ class DQNTrainer(object):
 
             self.metric = self.logger.log_current_row['MeanEpisodeDuration']
             self.logger.dump_tabular()
-
 
     def _train_episode(self):
         """
@@ -282,7 +265,7 @@ class DQNTrainer(object):
             if val_type == 'q_value':
                 for state in self.env_random_states:
                     current_state_q = max(
-                            self.policy_net(
+                            self.agent.policy_net(
                                     state.to(self.device)).data.cpu().numpy()[0])
                     validation_values.append(current_state_q)
                 validation_value = np.mean(validation_values)
@@ -295,6 +278,18 @@ class DQNTrainer(object):
                     validation_values.append(episode_duration)
                 validation_value = np.mean(validation_values)
         return validation_value
+
+    def _scheduler_logic(self, performance_thresh):
+        if all(list(map(lambda x: x > performance_thresh,
+                        self.episode_durations[
+                        -self.cfg.SCHEDULER.EPISODES_SUCCESS_SEQUENCE:]))) \
+                and self.episodes_from_scheduler_step >= self.cfg.SCHEDULER.COOLDOWN:
+
+            performance_thresh += self.cfg.SCHEDULER.PERFORMANCE_LEAP
+            self.scheduler.step()
+            self.episodes_from_scheduler_step = 0
+        else:
+            self.episodes_from_scheduler_step += 1
 
     def _save_ckpt(self, episode=None):
         checkpoint = {
@@ -309,8 +304,11 @@ class DQNTrainer(object):
         checkpoint_path = os.path.join(self.cfg.CKPT_SAVE_DIR, fpath)
         torch.save(checkpoint, checkpoint_path)
 
-    def _load_ckpt(self, ckpt_path):
-        newest_ckpt_name = self._get_newest_ckpt()
+    def _load_ckpt(self, ckpt_path): # todo(maors) - crashes if ckpt_path=""
+        if ckpt_path != "":
+            newest_ckpt_name = self._get_newest_ckpt()
+        else:
+            newest_ckpt_name = None
 
         if newest_ckpt_name is not None:
             ckpt_path = os.path.join(
@@ -347,49 +345,3 @@ class DQNTrainer(object):
             newest_ckpt_name = max(files, key=lambda x: int(
                 x.split('.')[0].split('_')[-1]))
         return newest_ckpt_name
-
-
-class DQNAgent(object):
-    def __init__(self, policy_net, n_actions, device, env, epsilon=0.0):
-        self.policy_net = policy_net
-        self.state = None
-        self.n_actions = n_actions
-        self.device = device
-        self.env = env
-        self.epsilon = epsilon
-
-    def _play_episode(self):
-        """
-
-        Returns:
-
-        """
-        states = []
-        for t in count():
-            states.append(self.state)
-
-            # Select and perform an action
-            action = self.select_action(eps_threshold=0)
-            # self.steps_done += 1
-            _, _, done, _ = self.env.step(action.item())
-
-            if not done:
-                self.state = self.env.get_state().to(self.device)
-
-            if done:
-                episode_duration = t + 1
-                return states, episode_duration
-
-    def select_action(self, eps_threshold):
-        sample = random.random()
-
-        if sample > eps_threshold:
-            with torch.no_grad():
-                # t.max(1) will return largest column value of each row.
-                # second column on max result is index of where max element was
-                # found, so we pick action with the larger expected reward.
-                return self.policy_net(self.state).max(1)[1].view(1, 1)
-        else:
-            return torch.tensor([[random.randrange(self.n_actions)]],
-                                device=self.device,
-                                dtype=torch.long)
