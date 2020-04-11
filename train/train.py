@@ -1,3 +1,4 @@
+import os
 import argparse
 
 import pickle
@@ -6,7 +7,6 @@ import gym
 
 import utils.yaml_utils
 import utils.gym_utils
-
 from algorithms.dqn.model import dqn_vanilla
 from algorithms.dqn.utils import replay_mem
 import algorithms.dqn.trainer
@@ -19,6 +19,9 @@ def main():
     args = parse_args()
     if args.cfg_path != '':
         utils.yaml_utils.load_from_yaml(args.cfg_path, cfg)
+
+    if not os.path.isdir(cfg.TRAIN.LOG.OUTPUT_DIR):
+        os.makedirs(cfg.TRAIN.LOG.OUTPUT_DIR)
 
     train()
 

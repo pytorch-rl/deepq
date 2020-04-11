@@ -1,0 +1,41 @@
+PATHS:
+    Q_VALIDATION_SET_PATH: "./results/validation_set_random_1000.pickle"
+    SCORE_VALIDATION_SET_PATH: "./results/validation_set_initial_1000.pickle"
+
+HP_OPTIM:
+    NUM_TRIALS: 100
+
+TRAIN:
+    BATCH_SIZE: 32
+    REPLAY_MEMORY_SIZE: 10000
+    TARGET_UPDATE: 10
+    NUM_EPISODES: 500
+
+    GAMMA: 0.97
+
+    SCHEDULER:
+        GAMMA: 0.3
+        PERFORMANCE_LEAP: 25
+        EPISODES_SUCCESS_SEQUENCE: 3
+        SUCCESS_CRITERIA: "all_above_thresh"
+        MIN_EPISODES_BETWEEN_STEPS: 10
+
+    VALIDATION:
+        Q_VALIDATION_FREQUENCY: 10
+        SCORE_VALIDATION_FREQUENCY: 50
+        SCORE_VALIDATION_SIZE: 10
+
+    CKPT_SAVE_DIR: "./results/checkpoints"
+    CKPT_SAVE_FREQ: 1000
+    CKPT_PATH: ""
+
+
+    EPS_START: 1.0
+    EPS_END: 0.05
+    EPS_DECAY: 200
+    LEARNING_RATE: 0.001
+
+    LOG:
+        OUTPUT_DIR: "./results"
+
+    VISUALIZE: True
