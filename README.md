@@ -1,8 +1,31 @@
 # deepq
 
+## Project Summary
+
+### Introduction
+
+- What our goal were - Solve cartpole using raw input
+- Was supposed to be a toy example on the way and turned out differently
+- Based on the original pytorch tutorial (we were not able to make it work consistently).
+- Found to be unstable and inconsistent.
+- Did not find any solution with a CNN (we found failed attempts)
+- Added 2 dense layers to the model
+- Tried hyperparameter optimization for no avail 
+- Was able to win the game using a scheduler
+
+### Results
+
+- Add graph of 80 runs...
+
 ![](assets/cartpole_example.gif)
 
+### Conclusions
+
+- RL is harder than supervised learning
+- 
+
 ## Prerequisites
+
 - Linux or macOS
 - Python 3
 - CPU or NVIDIA GPU + CUDA CuDNN 10
@@ -69,7 +92,7 @@ With the possibility of defining your own trained checkpoint `--ckpt_path` and d
 
 By default, the agent is loading a predefined model `assets/checkpoint.pt` and saves the `.gif` file to `results/cartpole_example.gif`.
 
-   
+
 ## Citation
 
 The algorithm used in this project is based on:
@@ -80,4 +103,4 @@ Mnih, V., Kavukcuoglu, K., Silver, D., Graves, A., Antonoglou, I., Wierstra, D. 
 
 ## Acknowledgments
 
-Our code is inspired by the [official pytorch DQN tutorial](https://github.com/pytorch/tutorials/blob/master/intermediate_source/reinforcement_q_learning.py).  
+Our code is based upon the [official pytorch DQN tutorial](https://github.com/pytorch/tutorials/blob/master/intermediate_source/reinforcement_q_learning.py).  

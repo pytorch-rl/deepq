@@ -8,7 +8,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--trials_dir_path',
-                        type=str,
                         required=True)
 
     return parser.parse_args()
@@ -30,15 +29,37 @@ if __name__ == '__main__':
 
     progresses_df = pd.concat(progresses)
 
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Ubuntu'
+    plt.rcParams['font.monospace'] = 'Ubuntu Mono'
+    plt.rcParams['font.size'] = 10
+    plt.rcParams['axes.labelsize'] = 10
+    plt.rcParams['axes.labelweight'] = 'bold'
+    plt.rcParams['xtick.labelsize'] = 8
+    plt.rcParams['ytick.labelsize'] = 8
+    plt.rcParams['legend.fontsize'] = 10
+    plt.rcParams['figure.titlesize'] = 12
+    plt.rcParams['figure.titleweight'] = 'bold'
+
     sns.set()
     # sns.catplot(x='Epoch',
     #              y='EpisodeDuration',
     #              data=progresses_df)
-    sns.lineplot(x='Epoch',
+    ax = sns.lineplot(x='Epoch',
                  y='MeanEpisodeDuration',
                  hue='trial',
                  data=progresses_df,
                  estimator=None)
+    # giving labels to x-axis and y-axis
+    # giving labels to x-axis and y-axis
+    ax.set(xlabel='Episodes trained', ylabel='Mean Episode Duration')
+    # giving title to the plot
+    # giving title to the plot
+    font = {'family': 'serif',
+            'weight': 'bold',
+            'size'  : 16,
+            }
+    plt.title('Mean Episode Duration Vs Episodes Trained', fontdict=font)
     # estimator=None)
     plt.show()
     print('')
