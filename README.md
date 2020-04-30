@@ -15,9 +15,13 @@
 
 ### Results
 
-- Add graph of 80 runs...
+The good news: It learns!
 
 ![](assets/cartpole_example.gif)
+
+The bad news: It does so very inconsistently.
+
+![](assets/multi_trial_analysis.png)
 
 ### Conclusions
 
