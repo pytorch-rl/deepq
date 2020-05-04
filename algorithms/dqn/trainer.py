@@ -1,15 +1,15 @@
-import math
+import os
 import time
+import math
 from itertools import count
 
 import numpy as np
-import os
 import signal
 import torch
 import torch.nn.functional as F
+
 import utils.logx
 from algorithms.dqn.utils import replay_mem
-
 from utils import visualization
 
 
@@ -31,27 +31,32 @@ class DQNTrainer():
     """
 
     def __init__(self, train_cfg, env, agent, target_net, memory, optimizer,
-                 num_episodes, device, scheduler, env_random_states, env_initial_states):
+                 num_episodes, device, scheduler, env_random_states,
+                 env_initial_states):
         self.cfg = train_cfg
         self.agent = agent
         self.env = env
         self.optimizer = optimizer
         self.target_net = target_net
         self.memory = memory
-        self.steps_done = 0 # game steps counter from beginning of training
-        self.init_episode = 0 # todo(maors) - what is the meaning of this?
+        self.steps_done = 0  # game steps counter from beginning of training
+        self.init_episode = 0  # todo(maors) - what is the meaning of this?
         self.num_episodes = num_episodes
         self.device = device
-        self.episode_durations = [] # for logging and visualization
-        self.episode_mean_losses = [] # for logging and visualization
-        self.q_validation_scores = [] # for logging and visualization
-        self.score_validation_scores = [] # for logging and visualization
+        self.episode_durations = []  # for logging and visualization
+        self.episode_mean_losses = []  # for logging and visualization
+        self.q_validation_scores = []  # for logging and visualization
+        self.score_validation_scores = []  # for logging and visualization
         self.env_random_states = env_random_states
         self.env_initial_states_screens = env_initial_states
         self.scheduler = scheduler
-        self.metric = -1 # todo(maors) - what is the meaning of this?
-        self.episodes_from_scheduler_step = 0 # counter for scheduler cooldown
-        self.performance_thresh = self.cfg.SCHEDULER.INITIAL_PERFORMANCE_THRSH # Number of steps per episode required for reducing learning rate
+        self.metric = -1  # todo(maors) - what is the meaning of this?
+        self.episodes_from_scheduler_step = 0  # counter for scheduler cooldown
+        self.curr_episode = None
+        self.eps_threshold = None
+
+        # Number of steps per episode required for reducing learning rate
+        self.performance_thresh = self.cfg.SCHEDULER.INITIAL_PERFORMANCE_THRSH
 
         self._load_ckpt(self.cfg.CKPT_PATH)
 
@@ -85,9 +90,8 @@ class DQNTrainer():
                 self.target_net.load_state_dict(
                     self.agent.policy_net.state_dict())
 
-            if (
-                    i_episode % self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY == 0) and \
-                    (self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY != -1):
+            if (i_episode % self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY == 0) and \
+               (self.cfg.VALIDATION.Q_VALIDATION_FREQUENCY != -1):
                 validation_score = self.validate(val_type='q_value')
                 self.q_validation_scores.append(validation_score)
                 q_validation_episodes.append(i_episode)
@@ -97,10 +101,9 @@ class DQNTrainer():
                         q_validation_episodes,
                         fig_num=3, y_label='Q value')
 
-            if (
-                    i_episode % self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY == 0) and (
-                    i_episode > 0) and \
-                    (self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1):
+            if (i_episode % self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY == 0) and \
+               (i_episode > 0) and \
+               (self.cfg.VALIDATION.SCORE_VALIDATION_FREQUENCY != -1):
                 validation_score = self.validate(val_type='score')
                 self.score_validation_scores.append(validation_score)
                 score_validation_episodes.append(i_episode)
@@ -135,7 +138,8 @@ class DQNTrainer():
             else:
                 self.logger.log_tabular('ScoreValidation', -1)
 
-            self.logger.log_tabular('LR', self.optimizer.state_dict()['param_groups'][0]['lr'])
+            self.logger.log_tabular('LR', self.optimizer.state_dict()[
+                'param_groups'][0]['lr'])
             self.logger.log_tabular('Loss', self.episode_mean_losses[-1])
             self.logger.log_tabular('Time', time.time() - start_time)
 
@@ -149,9 +153,9 @@ class DQNTrainer():
         for t in count():
             # Select and perform an action
             self.eps_threshold = (self.cfg.EPS_END + (
-                        self.cfg.EPS_START - self.cfg.EPS_END) \
-                                 * math.exp(
-                -1. * self.steps_done / self.cfg.EPS_DECAY))
+                    self.cfg.EPS_START - self.cfg.EPS_END) \
+                                  * math.exp(
+                        -1. * self.steps_done / self.cfg.EPS_DECAY))
 
             action = self.agent.select_action(self.eps_threshold)
             self.steps_done += 1
@@ -236,7 +240,7 @@ class DQNTrainer():
         next_state_values[non_final_mask] = \
             self.target_net(non_final_next_states).max(1)[0].detach()
         # Compute the expected Q values
-        expected_state_action_values = (next_state_values * self.cfg.GAMMA)\
+        expected_state_action_values = (next_state_values * self.cfg.GAMMA) \
                                        + reward_batch
 
         # Compute Huber loss
@@ -275,8 +279,8 @@ class DQNTrainer():
             if val_type == 'q_value':
                 for state in self.env_random_states:
                     current_state_q = max(
-                            self.agent.policy_net(
-                                    state.to(self.device)).data.cpu().numpy()[0])
+                        self.agent.policy_net(
+                            state.to(self.device)).data.cpu().numpy()[0])
                     validation_values.append(current_state_q)
                 validation_value = np.mean(validation_values)
 
@@ -285,12 +289,12 @@ class DQNTrainer():
                     # Initialize the state.
                     self.env.reset()
                     self.agent.state = state
-                    _, episode_duration = self.agent._play_episode()
+                    _, episode_duration = self.agent.play_episode()
                     validation_values.append(episode_duration)
                 validation_value = np.mean(validation_values)
 
-            elif:
-                raise "Illegal value of 'val_type'"
+            else:
+                raise ValueError("Illegal value of 'val_type'")
 
         return validation_value
 
@@ -325,7 +329,7 @@ class DQNTrainer():
         checkpoint_path = os.path.join(self.cfg.CKPT_SAVE_DIR, fpath)
         torch.save(checkpoint, checkpoint_path)
 
-    def _load_ckpt(self, ckpt_path): # todo(maors) - crashes if ckpt_path=""
+    def _load_ckpt(self, ckpt_path):  # todo(maors) - crashes if ckpt_path=""
         if ckpt_path != "":
             newest_ckpt_name = self._get_newest_ckpt()
         else:

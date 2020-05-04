@@ -15,7 +15,7 @@ from config.default_config import cfg
 
 
 def main():
-    """configuration and training"""
+    """Configuration and training."""
     args = parse_args()
     if args.cfg_path != '':
         utils.yaml_utils.load_from_yaml(args.cfg_path, cfg)
@@ -30,7 +30,8 @@ def train():
     """Initialization and training of a cart-pole DQN agent"""
 
     # initialization
-    env = utils.gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped, num_frames=4)
+    env = utils.gym_utils.EnvWrapper(gym.make('CartPole-v0').unwrapped,
+                                     num_frames=4)
     env.reset()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if device == torch.device('cpu'):
@@ -69,22 +70,23 @@ def train():
         env_initial_states = pickle.load(
             open(cfg.PATHS.SCORE_VALIDATION_SET_PATH, 'rb'))
         env_initial_states = env_initial_states[
-                                     :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
+                             :cfg.TRAIN.VALIDATION.SCORE_VALIDATION_SIZE]
         env_initial_states = list(map(to_device, env_initial_states))
     else:
         env_initial_states = []
 
     agent = algorithms.dqn.agent.DQNAgent(policy_net, n_actions, device, env,
-                                            cfg.TRAIN.EPS_END)
+                                          cfg.TRAIN.EPS_END)
     trainer = \
         algorithms.dqn.trainer.DQNTrainer(
             cfg.TRAIN, env, agent, target_net, memory, optimizer,
             cfg.TRAIN.NUM_EPISODES, device,
             scheduler, env_random_states, env_initial_states
-    )
+        )
 
     trainer.train()
     print('Complete')
+
 
 def parse_args():
     """Commandline argument parser for configuration
@@ -109,4 +111,3 @@ def parse_args():
 
 if __name__ == '__main__':
     main()
-

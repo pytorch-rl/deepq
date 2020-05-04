@@ -13,7 +13,7 @@ class DQNAgent():
         self.env = env
         self.epsilon = epsilon
 
-    def _play_episode(self):
+    def play_episode(self):
         """A single episode (until agent fails the game), without optimizing
         policy net.
 
