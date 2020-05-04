@@ -1,1 +1,0 @@
-__author__ = 'yotampe@samsung.com'

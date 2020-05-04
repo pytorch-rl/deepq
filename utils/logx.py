@@ -7,12 +7,10 @@ Logs to a tab-separated-values file (path/to/output_directory/progress.txt)
 From: https://github.com/openai/spinningup/tree/master/spinup/utils
 
 """
+import os.path as osp, time, atexit, os
 import json
-import joblib
 
 import numpy as np
-import os.path as osp, time, atexit, os
-import torch
 
 from utils.mpi_tools import proc_id, mpi_statistics_scalar
 
@@ -84,7 +82,8 @@ class Logger:
                 time.time())
             if osp.exists(self.output_dir):
                 print(
-                    "Warning: Log dir %s already exists! Storing info there anyway." % self.output_dir)
+                    "Warning: Log dir %s already exists! Storing info there"
+                    " anyway." % self.output_dir)
             else:
                 os.makedirs(self.output_dir)
             self.output_file = open(osp.join(self.output_dir, output_fname),

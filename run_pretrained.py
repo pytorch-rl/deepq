@@ -1,6 +1,4 @@
 import argparse
-import os
-import sys
 
 import gym
 import matplotlib.pyplot as plt
@@ -73,7 +71,7 @@ class CartpoleRunner(object):
 
             action = self.agent.select_action(eps_threshold=0)
             self.steps_done += 1
-            _, reward, done, _ = self.env.step(action.item())
+            _, _, done, _ = self.env.step(action.item())
 
             frames.append(self.env.render(mode="rgb_array"))
 

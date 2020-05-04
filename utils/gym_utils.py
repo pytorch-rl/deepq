@@ -1,7 +1,7 @@
 import numpy as np
+from PIL import Image
 import torch
 import torchvision.transforms as T
-from PIL import Image
 
 resize = T.Compose([T.ToPILImage(),
                     T.Resize(40, interpolation=Image.CUBIC),
@@ -54,7 +54,7 @@ class EnvWrapper:
 
         self._frames = []
         self._frames.append(get_screen(self.env))
-        for env_step in range(self.num_frames - 1):
+        for _ in range(self.num_frames - 1):
             self.env.step(0)
             self._frames.append(get_screen(self.env))
 
@@ -68,7 +68,7 @@ class EnvWrapper:
         return observation, reward, done, lives
 
     def get_state(self):
-        return torch.stack(self._frames).squeeze(1).permute(1,0,2,3)
+        return torch.stack(self._frames).squeeze(1).permute(1, 0, 2, 3)
 
     def close(self):
         self.env.close()
@@ -85,5 +85,3 @@ class EnvWrapper:
 #
 #     ew.reset_state()
 #     x = ew.get_state()
-
-

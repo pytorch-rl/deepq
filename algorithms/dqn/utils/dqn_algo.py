@@ -1,6 +1,7 @@
-import random
-import torch
 import math
+import random
+
+import torch
 
 
 EPS_START = 0.9
@@ -22,4 +23,5 @@ def select_action(state, steps_done, policy_net, n_actions, device):
             # found, so we pick action with the larger expected reward.
             return policy_net(state).max(1)[1].view(1, 1), steps_done
     else:
-        return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long), steps_done
+        return torch.tensor([[random.randrange(n_actions)]], device=device,
+                            dtype=torch.long), steps_done
