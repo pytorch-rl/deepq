@@ -8,7 +8,7 @@ This repository is a results of the final course project for TAU's *Deep Learnin
 
 Our goal was to dive in to the world of RL by implementing DQN and winning an Atari game using raw inputs only (inputs being screen pixels).
 
-The Cartpol game emulated by the OpenAI gym, was chosen as an initial problem given that we could not find any previous implementation that was able to show a Cartpole *win*[^1] via DQN **and CNN** using raw input.
+The Cartpol game emulated by the OpenAI gym, was chosen as an initial problem given that we could not find any previous implementation that was able to show a Cartpole *win*<sup>1</sup> via DQN **and CNN** using raw input.
 
 We based our code base on the official [pytorch DQN tutorial](https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html) that itself tries to win Cartpol with DQN+CNN but (from our experience) is not able to win the game under the gym definitions. 
 
@@ -20,7 +20,7 @@ Most of our effort  was centered around improving stability and consistency. We 
 
 Eventually, we were able to bypass stability issues and win the game using a learning rate regime in which the scheduler was score-aware and could reduce the learning rate drastically when performance was good enough to win the game.
 
-[^1]: From https://gym.openai.com/envs/CartPole-v0/: "*CartPole-v0 defines "solving" as getting average reward of 195.0 over 100 consecutive trials.*"
+<sup>1</sup>From https://gym.openai.com/envs/CartPole-v0/: "*CartPole-v0 defines "solving" as getting average reward of 195.0 over 100 consecutive trials.*"
 
 ### Results
 
