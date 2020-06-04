@@ -24,7 +24,7 @@ Eventually, we were able to bypass stability issues and win the game using a lea
 
 ### Results
 
-#### The good new
+#### The good news
 
 > The agent was (sometimes) able to win the game 
 >
